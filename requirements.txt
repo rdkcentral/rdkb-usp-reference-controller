@@ -1,0 +1,11 @@
+# Enhanced USP Controller Requirements
+flask>=2.3.0
+flask-socketio>=5.5.0
+python-socketio>=5.8.0
+eventlet>=0.33.0
+
+# Optional dependencies for enhanced features
+requests>=2.31.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0

@@ -1,0 +1,1046 @@
+<!--
+# If not stated otherwise in this file or this component's LICENSE
+# file the following copyright and licenses apply:
+#
+# Copyright 2024 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+###########################################################################
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Professional USP Controller for RDK-B | Advanced Device Management</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Professional USP Controller with DAC functionality for RDK-B devices">
+    <meta name="author" content="USP Controller Team">
+    
+    <!-- Preload Critical Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+    
+    <style>
+    /* Enhanced Parameter Operations Styles */
+    .input-mode-toggle {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .input-mode-toggle .btn {
+        flex: 1;
+        transition: all 0.3s ease;
+    }
+
+    .param-path-info {
+        padding: 8px 12px;
+        background: rgba(100, 181, 246, 0.1);
+        border-left: 3px solid var(--text-accent);
+        border-radius: 4px;
+        color: var(--text-secondary);
+        margin-top: 8px;
+    }
+
+    .value-hints {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+
+    .value-hint {
+        display: inline-block;
+        padding: 2px 8px;
+        background: rgba(100, 181, 246, 0.1);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--text-accent);
+        font-weight: 500;
+    }
+
+    .value-hint:hover {
+        background: rgba(100, 181, 246, 0.2);
+        transform: translateY(-1px);
+    }
+
+    #get-param-path-custom,
+    #set-param-path-custom {
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
+        font-size: 13px;
+    }
+
+    /* Input validation states */
+    .form-control.valid {
+        border-color: var(--success);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+    }
+
+    .form-control.invalid {
+        border-color: var(--error);
+        box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.2);
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Enhanced Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-microchip"></i> Professional USP Controller</h1>
+                <p class="header-subtitle">Advanced RDK-B Device Management & DAC Application Control</p>
+            </div>
+            
+            <!-- Enhanced Connection Status Dashboard -->
+            <div class="connection-status">
+                <div class="status-indicator {{ 'status-connected' if connected else 'status-disconnected' }}">
+                    <i class="fas {{ 'fa-wifi' if connected else 'fa-wifi-slash' }}"></i>
+                    <span>{{ 'Connected' if connected else 'Disconnected' }}</span>
+                </div>
+                
+                <div class="status-indicator status-dmcli">
+                    <i class="fas {{ 'fa-terminal' if dmcli_available else 'fa-network-wired' }}"></i>
+                    <span>{{ 'dmcli Protocol' if dmcli_available else 'USP Protocol' }}</span>
+                </div>
+                
+                <div class="status-info">
+                    <i class="fas fa-server"></i>
+                    <strong>Device:</strong> {{ device_serial or 'Unknown' }}
+                </div>
+                
+                <div class="status-info">
+                    <i class="fas fa-globe"></i>
+                    <strong>Broker:</strong> {{ config.broker }}:{{ config.broker_port }}
+                </div>
+                
+                <div class="status-info">
+                    <i class="fas fa-database"></i>
+                    <strong>Parameters:</strong> {{ data_model_count }}
+                </div>
+                
+                <div class="status-info">
+                    <i class="fas fa-clock"></i>
+                    <strong>Last Update:</strong> <span id="last-update">Now</span>
+                </div>
+            </div>
+            
+            <!-- Enhanced Configuration Panel -->
+            <div class="config-panel">
+                <h3><i class="fas fa-cog"></i> Configuration Settings</h3>
+                <form method="post" action="/config" class="config-form">
+                    <div class="config-group">
+                        <label for="broker">MQTT Broker IP</label>
+                        <input type="text" id="broker" name="broker" value="{{ config.broker }}" 
+                               placeholder="192.168.1.1" class="config-input" pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="broker_port">Port</label>
+                        <input type="number" id="broker_port" name="broker_port" value="{{ config.broker_port }}" 
+                               placeholder="1883" class="config-input" min="1" max="65535">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="to_id">Agent ID</label>
+                        <input type="text" id="to_id" name="to_id" value="{{ config.to_id }}" 
+                               placeholder="proto::rx_usp_agent_mqtt" class="config-input">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="timeout">Timeout (sec)</label>
+                        <input type="number" id="timeout" name="timeout" value="30" 
+                               placeholder="30" class="config-input" min="5" max="300">
+                    </div>
+                    
+                    <div class="config-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Update Config
+                        </button>
+                        <a href="/refresh" class="btn btn-primary">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </a>
+                        <a href="/discover" class="btn btn-warning">
+                            <i class="fas fa-search"></i> Discover
+                        </a>
+                        <button type="button" class="btn btn-info" onclick="toggleAdvancedMode()">
+                            <i class="fas fa-tools"></i> Advanced
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </header>
+        
+        <!-- System Messages -->
+        {% if message %}
+        <div class="message message-{{ message.type }}" id="system-message">
+            <i class="fas {{ 'fa-check-circle' if message.type == 'success' else 'fa-exclamation-triangle' if message.type == 'warning' else 'fa-times-circle' if message.type == 'error' else 'fa-info-circle' }}"></i>
+            <span>{{ message.text }}</span>
+            <button type="button" class="message-close" onclick="this.parentElement.style.display='none'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        {% endif %}
+        
+        <!-- Main Content Grid -->
+        <main class="main-content">
+            <!-- Enhanced Parameter Operations with Custom Input -->
+            <section class="panel" id="parameter-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-sliders-h"></i> Parameter Operations</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-info" onclick="toggleParameterHistory()">
+                            <i class="fas fa-history"></i> History
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="btn btn-sm btn-primary" onclick="getDeviceInfo()">
+                        <i class="fas fa-info"></i> Device Info
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="getWiFiStatus()">
+                        <i class="fas fa-wifi"></i> WiFi Status
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="getSystemStats()">
+                        <i class="fas fa-chart-bar"></i> System Stats
+                    </button>
+                </div>
+                
+                <!-- Get Parameter Form with Custom Input -->
+                <form method="post" action="/get_parameter" class="parameter-form">
+                    <div class="form-group">
+                        <label for="get-param-path">
+                            <i class="fas fa-download"></i> Get Parameter
+                        </label>
+                        
+                        <!-- Input Mode Toggle -->
+                        <div class="input-mode-toggle">
+                            <button type="button" class="btn btn-sm" id="get-select-mode-btn" onclick="toggleGetInputMode('select')" style="background: var(--text-accent); color: white;">
+                                <i class="fas fa-list"></i> Select Mode
+                            </button>
+                            <button type="button" class="btn btn-sm" id="get-custom-mode-btn" onclick="toggleGetInputMode('custom')">
+                                <i class="fas fa-keyboard"></i> Custom Input
+                            </button>
+                        </div>
+                        
+                        <!-- Select Mode (Default) -->
+                        <div id="get-select-container" class="input-group">
+                            <select name="param_path" id="get-param-path" class="form-control">
+                                <option value="">Select Parameter...</option>
+                                <optgroup label="Device Information">
+                                    <option value="Device.DeviceInfo.SerialNumber">Serial Number</option>
+                                    <option value="Device.DeviceInfo.Manufacturer">Manufacturer</option>
+                                    <option value="Device.DeviceInfo.ModelName">Model Name</option>
+                                    <option value="Device.DeviceInfo.SoftwareVersion">Software Version</option>
+                                    <option value="Device.DeviceInfo.HardwareVersion">Hardware Version</option>
+                                    <option value="Device.DeviceInfo.UpTime">Uptime</option>
+                                </optgroup>
+                                <optgroup label="Network Configuration">
+                                    <option value="Device.IP.Interface.1.IPv4Address.1.IPAddress">IP Address</option>
+                                    <option value="Device.Ethernet.Interface.1.MACAddress">MAC Address</option>
+                                    <option value="Device.WiFi.Radio.1.Enable">WiFi Radio Enable</option>
+                                    <option value="Device.WiFi.SSID.1.SSID">WiFi SSID</option>
+                                </optgroup>
+                                <optgroup label="System Settings">
+                                    <option value="Device.Time.CurrentLocalTime">Current Time</option>
+                                    <option value="Device.X_LGI-COM_General_Internal.CurrentLanguage">Language</option>
+                                </optgroup>
+                                <optgroup label="RDK Extensions">
+                                    <option value="Device.X_RDK_WebConfig.">X_RDK_WebConfig (All)</option>
+                                    <option value="Device.X_RDKCENTRAL-COM_Report.">X_RDKCENTRAL Report (All)</option>
+                                    <option value="Device.X_RDK_Xmidt.">X_RDK_Xmidt (All)</option>
+                                </optgroup>
+                            </select>
+                            <button type="button" class="btn btn-primary btn-icon" onclick="refreshParameterList()">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Custom Input Mode (Hidden by default) -->
+                        <div id="get-custom-container" class="input-group" style="display: none;">
+                            <input type="text" 
+                                   name="param_path_custom" 
+                                   id="get-param-path-custom" 
+                                   class="form-control" 
+                                   placeholder="Enter custom parameter path (e.g., Device.X_RDK_WebConfig.URL)"
+                                   autocomplete="off"
+                                   list="param-suggestions">
+                            <datalist id="param-suggestions">
+                                <option value="Device.DeviceInfo.">
+                                <option value="Device.WiFi.">
+                                <option value="Device.Ethernet.">
+                                <option value="Device.IP.">
+                                <option value="Device.X_RDK_">
+                                <option value="Device.X_RDKCENTRAL-COM_">
+                                <option value="Device.X_CISCO_COM_">
+                                <option value="Device.SoftwareModules.">
+                            </datalist>
+                            <button type="button" class="btn btn-info btn-icon" onclick="validateParameterPath('get')" title="Validate Path">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Parameter Path Info -->
+                        <div id="get-param-info" class="param-path-info" style="display: none;">
+                            <small><i class="fas fa-info-circle"></i> <span id="get-param-info-text"></span></small>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Get Parameter
+                    </button>
+                </form>
+                
+                <!-- Set Parameter Form with Custom Input -->
+                <form method="post" action="/set_parameter" class="parameter-form">
+                    <div class="form-group">
+                        <label for="set-param-path">
+                            <i class="fas fa-upload"></i> Set Parameter
+                        </label>
+                        
+                        <!-- Input Mode Toggle -->
+                        <div class="input-mode-toggle">
+                            <button type="button" class="btn btn-sm" id="set-select-mode-btn" onclick="toggleSetInputMode('select')" style="background: var(--text-accent); color: white;">
+                                <i class="fas fa-list"></i> Select Mode
+                            </button>
+                            <button type="button" class="btn btn-sm" id="set-custom-mode-btn" onclick="toggleSetInputMode('custom')">
+                                <i class="fas fa-keyboard"></i> Custom Input
+                            </button>
+                        </div>
+                        
+                        <!-- Select Mode (Default) -->
+                        <div id="set-select-container">
+                            <select name="param_path" id="set-param-path" class="form-control">
+                                <option value="">Select Parameter...</option>
+                                <optgroup label="User Management">
+                                    <option value="Device.Users.User.2.X_CISCO_COM_Password">User 2 Password</option>
+                                    <option value="Device.Users.User.3.X_CISCO_COM_Password">User 3 Password</option>
+                                </optgroup>
+                                <optgroup label="System Settings">
+                                    <option value="Device.X_LGI-COM_General_Internal.CurrentLanguage">Language</option>
+                                    <option value="Device.WiFi.SSID.1.SSID">WiFi SSID</option>
+                                    <option value="Device.Time.NTPServer1">NTP Server</option>
+                                </optgroup>
+                                <optgroup label="RDK Settings">
+                                    <option value="Device.X_RDK_WebConfig.URL">WebConfig URL</option>
+                                    <option value="Device.X_RDK_WebConfig.SupplementaryServiceUrls">Supplementary URLs</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <!-- Custom Input Mode (Hidden by default) -->
+                        <div id="set-custom-container" style="display: none;">
+                            <input type="text" 
+                                   name="param_path_custom" 
+                                   id="set-param-path-custom" 
+                                   class="form-control" 
+                                   placeholder="Enter custom parameter path (e.g., Device.WiFi.SSID.1.Enable)"
+                                   autocomplete="off"
+                                   list="set-param-suggestions">
+                            <datalist id="set-param-suggestions">
+                                <option value="Device.WiFi.SSID.1.Enable">
+                                <option value="Device.WiFi.SSID.1.SSID">
+                                <option value="Device.WiFi.AccessPoint.1.Security.ModeEnabled">
+                                <option value="Device.X_RDK_WebConfig.">
+                                <option value="Device.Time.NTPServer1">
+                            </datalist>
+                        </div>
+                        
+                        <!-- Parameter Path Info -->
+                        <div id="set-param-info" class="param-path-info" style="display: none;">
+                            <small><i class="fas fa-info-circle"></i> <span id="set-param-info-text"></span></small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="param-value">
+                            <i class="fas fa-edit"></i> Value
+                        </label>
+                        <div class="input-group">
+                            <input type="text" name="param_value" id="param-value" class="form-control" 
+                                   placeholder="Enter parameter value..." autocomplete="off">
+                        </div>
+                        <div class="value-hints">
+                            <small class="text-muted">
+                                <i class="fas fa-lightbulb"></i> 
+                                <strong>Common values:</strong> 
+                                <span class="value-hint" onclick="setValueHint('true')">true</span> | 
+                                <span class="value-hint" onclick="setValueHint('false')">false</span> | 
+                                <span class="value-hint" onclick="setValueHint('Active')">Active</span> | 
+                                <span class="value-hint" onclick="setValueHint('Idle')">Idle</span>
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-upload"></i> Set Parameter
+                    </button>
+                </form>
+                
+                <!-- Parameter Result Display -->
+                {% if param_result %}
+                <div class="form-group result-display">
+                    <label>
+                        <i class="fas fa-terminal"></i> Operation Result
+                        <span class="result-status {{ 'success' if param_result.success else 'error' }}">
+                            {{ 'SUCCESS' if param_result.success else 'FAILED' }}
+                        </span>
+                    </label>
+                    <div class="result-container">
+                        <pre class="result-content">{{ param_result | tojson(indent=2) }}</pre>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="copyResult()">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </section>
+            
+            <!-- Enhanced DAC Application Management -->
+            <section class="panel" id="dac-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-cubes"></i> DAC Application Management</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-warning" onclick="refreshApplicationList()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Application Installation Form -->
+                <form method="post" action="/install" class="install-form">
+                    <div class="form-group">
+                        <label><i class="fas fa-download"></i> Install Application</label>
+                        <div class="install-grid">
+                            <div class="install-field">
+                                <label for="app-name">Application</label>
+                                <select name="name" id="app-name" class="form-control" onchange="updateAppDescription()">
+                                    <option value="">Choose Application...</option>
+                                    <optgroup label="System Tools">
+                                        <option value="busybox" data-desc="Essential Unix utilities">Busy Box</option>
+                                        <option value="iperf3" data-desc="Network performance testing">iPerf3</option>
+                                    </optgroup>
+                                    <optgroup label="User Interface">
+                                        <option value="webui" data-desc="Web-based management interface">Web UI</option>
+                                        <option value="tictactoe" data-desc="Simple game application">Tic Tac Toe</option>
+                                    </optgroup>
+                                    <optgroup label="Networking">
+                                        <option value="opensync" data-desc="Cloud synchronization service">OpenSync</option>
+                                        <option value="openvpn" data-desc="VPN client application">OpenVPN</option>
+                                    </optgroup>
+                                    <optgroup label="Development">
+                                        <option value="rbus" data-desc="RDK message bus library">RBus</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            
+                            <div class="install-field">
+                                <label for="app-location">Repository</label>
+                                <select name="location" id="app-location" class="form-control" onchange="updateLocationInfo()">
+                                    <option value="">Choose Location...</option>
+                                    <option value="local" data-desc="Local file system">Local Storage</option>
+                                    <option value="remote" data-desc="GitHub repository">Remote (GitHub)</option>
+                                    <option value="server" data-desc="HTTP server">HTTP Server</option>
+                                    <option value="share" data-desc="Shared directory">Network Share</option>
+                                </select>
+                            </div>
+                            
+                            <div class="install-field">
+                                <label for="app-version">Version</label>
+                                <select name="version" id="app-version" class="form-control">
+                                    <option value="">Choose Version...</option>
+                                    <option value="1.0">1.0 (Stable)</option>
+                                    <option value="3.1">3.1 (Recommended)</option>
+                                    <option value="4.4">4.4 (Latest)</option>
+                                    <option value="5.6">5.6 (Beta)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="app-description" id="app-description">
+                            Select an application to see its description
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-download"></i> Install Application
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="validateInstallation()">
+                            <i class="fas fa-check"></i> Validate
+                        </button>
+                    </div>
+                </form>
+            </section>
+            
+            <!-- Enhanced Software Modules Dashboard (SINGLE INSTANCE ONLY) -->
+            <section class="panel full-width" id="software-modules-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-server"></i> Software Modules Dashboard</span>
+                    <div class="panel-actions">
+                        <a href="/refresh_modules" class="btn btn-primary btn-sm">
+                            <i class="fas fa-sync"></i> Refresh All
+                        </a>
+                        <a href="/force_eu_discovery" class="btn btn-warning btn-sm">
+                            <i class="fas fa-search"></i> Force Discovery
+                        </a>
+                        <button class="btn btn-info btn-sm" onclick="exportModuleData()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="toggleModuleView()">
+                            <i class="fas fa-th-list"></i> View Mode
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Module Statistics -->
+                <div class="module-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-server"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-number">{{ software_modules.ees|length }}</div>
+                            <div class="stat-label">Execution Environments</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-cube"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-number">{{ software_modules.dus|length }}</div>
+                            <div class="stat-label">Deployment Units</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-play"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-number">{{ software_modules.eus|length }}</div>
+                            <div class="stat-label">Execution Units</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-number">{{ (software_modules.eus|selectattr('Status', 'equalto', 'Active')|list|length / (software_modules.eus|length or 1) * 100)|round|int }}%</div>
+                            <div class="stat-label">Active Units</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Execution Environments Table -->
+                <div class="module-section">
+                    <h4><i class="fas fa-server"></i> Execution Environments ({{ software_modules.ees|length }})</h4>
+                    <div class="table-container">
+                        <table class="module-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> Index</th>
+                                    <th><i class="fas fa-tag"></i> Name</th>
+                                    <th><i class="fas fa-toggle-on"></i> Enabled</th>
+                                    <th><i class="fas fa-info-circle"></i> Status</th>
+                                    <th><i class="fas fa-layer-group"></i> Run Level</th>
+                                    <th><i class="fas fa-tools"></i> Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ee in software_modules.ees %}
+                                <tr class="module-row">
+                                    <td class="index-cell">{{ ee.Index }}</td>
+                                    <td class="name-cell">{{ ee.Name or 'Unnamed' }}</td>
+                                    <td class="enable-cell">
+                                        <span class="toggle-indicator {{ 'enabled' if ee.Enable == 'true' else 'disabled' }}">
+                                            {{ 'Yes' if ee.Enable == 'true' else 'No' }}
+                                        </span>
+                                    </td>
+                                    <td class="status-cell">
+                                        <span class="status-badge status-{{ ee.Status.lower() }}">{{ ee.Status or 'Unknown' }}</span>
+                                    </td>
+                                    <td class="runlevel-cell">
+                                        <span class="runlevel-info">
+                                            {{ ee.CurrentRunLevel or 'N/A' }} / {{ ee.InitialRunLevel or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button class="btn btn-sm btn-info" onclick="showEEDetails('{{ ee.Index }}')">
+                                            <i class="fas fa-info"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not software_modules.ees %}
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <span>No execution environments found</span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Deployment Units Table -->
+                <div class="module-section">
+                    <h4><i class="fas fa-cube"></i> Deployment Units ({{ software_modules.dus|length }})</h4>
+                    <div class="table-container">
+                        <table class="module-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> Index</th>
+                                    <th><i class="fas fa-tag"></i> Name</th>
+                                    <th><i class="fas fa-link"></i> Source URL</th>
+                                    <th><i class="fas fa-info-circle"></i> Status</th>
+                                    <th><i class="fas fa-server"></i> Exec Env</th>
+                                    <th><i class="fas fa-list"></i> Units</th>
+                                    <th><i class="fas fa-tools"></i> Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for du in software_modules.dus %}
+                                <tr class="module-row">
+                                    <td class="index-cell">{{ du.Index }}</td>
+                                    <td class="name-cell">{{ du.Name or 'Unnamed' }}</td>
+                                    <td class="url-cell">
+                                        <span class="url-text" title="{{ du.URL }}">{{ du.URL|truncate(30) }}</span>
+                                    </td>
+                                    <td class="status-cell">
+                                        <span class="status-badge status-{{ du.Status.lower() }}">{{ du.Status or 'Unknown' }}</span>
+                                    </td>
+                                    <td class="ref-cell">{{ du.ExecutionEnvRef or 'N/A' }}</td>
+                                    <td class="units-cell">{{ du.ExecutionUnitList or 'None' }}</td>
+                                    <td class="actions-cell">
+                                        <div class="action-group">
+                                            <button class="btn btn-sm btn-info" onclick="showDUDetails('{{ du.Index }}')">
+                                                <i class="fas fa-info"></i>
+                                            </button>
+                                            <a href="/uninstall/{{ du.Index }}" class="btn btn-danger btn-sm" 
+                                               onclick="return confirmUninstall('{{ du.Name or du.Index }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not software_modules.dus %}
+                                <tr>
+                                    <td colspan="7" class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <span>No deployment units found</span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Execution Units Table -->
+                <div class="module-section">
+                    <h4><i class="fas fa-play"></i> Execution Units ({{ software_modules.eus|length }})</h4>
+                    <div class="table-container">
+                        <table class="module-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> Index</th>
+                                    <th><i class="fas fa-tag"></i> Name</th>
+                                    <th><i class="fas fa-info-circle"></i> Status</th>
+                                    <th><i class="fas fa-play-circle"></i> State</th>
+                                    <th><i class="fas fa-power-off"></i> Auto Start</th>
+                                    <th><i class="fas fa-layer-group"></i> Run Level</th>
+                                    <th><i class="fas fa-tools"></i> Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for eu in software_modules.eus %}
+                                <tr class="module-row">
+                                    <td class="index-cell">{{ eu.Index }}</td>
+                                    <td class="name-cell">{{ eu.Name or 'Unnamed' }}</td>
+                                    <td class="status-cell">
+                                        <span class="status-badge status-{{ eu.Status.lower() }}">{{ eu.Status or 'Unknown' }}</span>
+                                    </td>
+                                    <td class="state-cell">{{ eu.RequestedState or 'N/A' }}</td>
+                                    <td class="autostart-cell">
+                                        <span class="toggle-indicator {{ 'enabled' if eu.AutoStart == 'true' else 'disabled' }}">
+                                            {{ eu.AutoStart or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="runlevel-cell">{{ eu.RunLevel or 'N/A' }}</td>
+                                    <td class="actions-cell">
+                                        <div class="action-group">
+                                            <a href="/set_state/{{ eu.Index }}/Active" class="btn btn-success btn-sm" title="Start">
+                                                <i class="fas fa-play"></i>
+                                            </a>
+                                            <a href="/set_state/{{ eu.Index }}/Idle" class="btn btn-warning btn-sm" title="Stop">
+                                                <i class="fas fa-stop"></i>
+                                            </a>
+                                            <a href="/restart_eu/{{ eu.Index }}" class="btn btn-primary btn-sm" title="Restart">
+                                                <i class="fas fa-redo"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-info" onclick="showEUDetails('{{ eu.Index }}')">
+                                                <i class="fas fa-info"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not software_modules.eus %}
+                                <tr>
+                                    <td colspan="7" class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <span>No execution units found</span>
+                                        {% if software_modules.dus %}
+                                        <br><small>Applications may still be starting. Try refreshing in a moment.</small>
+                                        {% else %}
+                                        <br><small>Install an application to see execution units.</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Module Information Notice -->
+                {% if software_modules.dus and not software_modules.eus %}
+                <div class="message message-info">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <strong>Note:</strong> Deployment units found but no execution units detected.
+                        <ul>
+                            <li>Installation may still be in progress - wait and refresh</li>
+                            <li>Application may have failed to create execution units - check logs</li>
+                            <li>Try manual discovery using "Force Discovery" button</li>
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+            </section>
+            
+            <!-- Enhanced Data Model Browser -->
+            <section class="panel full-width" id="data-model-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-sitemap"></i> Data Model Browser</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-primary" onclick="expandAllNodes()">
+                            <i class="fas fa-expand"></i> Expand All
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="collapseAllNodes()">
+                            <i class="fas fa-compress"></i> Collapse All
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="searchDataModel()">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+                
+                {% if data_model %}
+                <div class="data-model-header">
+                    <div class="model-stats">
+                        <span class="stat"><i class="fas fa-database"></i> {{ data_model_count }} Parameters</span>
+                        <span class="stat"><i class="fas fa-sitemap"></i> {{ data_model|length }} Top-level Objects</span>
+                    </div>
+                    <div class="model-search">
+                        <input type="text" id="model-search" placeholder="Search parameters..." class="form-control">
+                    </div>
+                </div>
+                
+                <div class="data-model-tree" id="data-model-tree">
+                    {{ render_data_model(data_model) | safe }}
+                </div>
+                {% else %}
+                <div class="empty-state-large">
+                    <i class="fas fa-sitemap"></i>
+                    <h3>No Data Model Available</h3>
+                    <p>Click "Discover" in the header to scan and build the device data model.</p>
+                    <a href="/discover" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Start Discovery
+                    </a>
+                </div>
+                {% endif %}
+            </section>
+            
+            <!-- Enhanced System Logs -->
+            <section class="panel full-width" id="logs-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-terminal"></i> System Logs</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-primary" onclick="refreshLogs()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="clearLogs()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="downloadLogs()">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="toggleAutoScroll()">
+                            <i class="fas fa-arrows-alt-v"></i> Auto Scroll
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="logs-container">
+                    <div class="logs" id="system-logs">
+                        {% for log in logs %}
+                        <div class="log-entry">{{ log }}</div>
+                        {% endfor %}
+                        {% if not logs %}
+                        <div class="log-entry">
+                            <span class="text-muted">No logs available. System logs will appear here.</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Processing...</div>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    
+    <script>
+    // Enhanced Parameter Operations JavaScript
+    
+    // Toggle between select and custom input for GET parameter
+    function toggleGetInputMode(mode) {
+        const selectContainer = document.getElementById('get-select-container');
+        const customContainer = document.getElementById('get-custom-container');
+        const selectBtn = document.getElementById('get-select-mode-btn');
+        const customBtn = document.getElementById('get-custom-mode-btn');
+        const selectInput = document.getElementById('get-param-path');
+        const customInput = document.getElementById('get-param-path-custom');
+        
+        if (mode === 'select') {
+            selectContainer.style.display = 'flex';
+            customContainer.style.display = 'none';
+            selectBtn.style.background = 'var(--text-accent)';
+            selectBtn.style.color = 'white';
+            customBtn.style.background = '';
+            customBtn.style.color = '';
+            
+            // Enable select, disable custom
+            selectInput.disabled = false;
+            customInput.disabled = true;
+            customInput.removeAttribute('name');
+            selectInput.setAttribute('name', 'param_path');
+        } else {
+            selectContainer.style.display = 'none';
+            customContainer.style.display = 'flex';
+            customBtn.style.background = 'var(--text-accent)';
+            customBtn.style.color = 'white';
+            selectBtn.style.background = '';
+            selectBtn.style.color = '';
+            
+            // Enable custom, disable select
+            customInput.disabled = false;
+            selectInput.disabled = true;
+            selectInput.removeAttribute('name');
+            customInput.setAttribute('name', 'param_path');
+            
+            // Focus on custom input
+            setTimeout(() => customInput.focus(), 100);
+        }
+        
+        // Clear info display
+        const infoDiv = document.getElementById('get-param-info');
+        infoDiv.style.display = 'none';
+    }
+    
+    // Toggle between select and custom input for SET parameter
+    function toggleSetInputMode(mode) {
+        const selectContainer = document.getElementById('set-select-container');
+        const customContainer = document.getElementById('set-custom-container');
+        const selectBtn = document.getElementById('set-select-mode-btn');
+        const customBtn = document.getElementById('set-custom-mode-btn');
+        const selectInput = document.getElementById('set-param-path');
+        const customInput = document.getElementById('set-param-path-custom');
+        
+        if (mode === 'select') {
+            selectContainer.style.display = 'block';
+            customContainer.style.display = 'none';
+            selectBtn.style.background = 'var(--text-accent)';
+            selectBtn.style.color = 'white';
+            customBtn.style.background = '';
+            customBtn.style.color = '';
+            
+            selectInput.disabled = false;
+            customInput.disabled = true;
+            customInput.removeAttribute('name');
+            selectInput.setAttribute('name', 'param_path');
+        } else {
+            selectContainer.style.display = 'none';
+            customContainer.style.display = 'block';
+            customBtn.style.background = 'var(--text-accent)';
+            customBtn.style.color = 'white';
+            selectBtn.style.background = '';
+            selectBtn.style.color = '';
+            
+            customInput.disabled = false;
+            selectInput.disabled = true;
+            selectInput.removeAttribute('name');
+            customInput.setAttribute('name', 'param_path');
+            
+            setTimeout(() => customInput.focus(), 100);
+        }
+        
+        const infoDiv = document.getElementById('set-param-info');
+        infoDiv.style.display = 'none';
+    }
+    
+    // Validate parameter path
+    function validateParameterPath(type) {
+        const inputId = type === 'get' ? 'get-param-path-custom' : 'set-param-path-custom';
+        const infoId = type === 'get' ? 'get-param-info' : 'set-param-info';
+        const infoTextId = type === 'get' ? 'get-param-info-text' : 'set-param-info-text';
+        
+        const input = document.getElementById(inputId);
+        const infoDiv = document.getElementById(infoId);
+        const infoText = document.getElementById(infoTextId);
+        const path = input.value.trim();
+        
+        if (!path) {
+            input.classList.remove('valid', 'invalid');
+            infoDiv.style.display = 'none';
+            return;
+        }
+        
+        // Basic validation
+        const isValid = /^Device\.[\w\-\.]+/.test(path);
+        
+        if (isValid) {
+            input.classList.remove('invalid');
+            input.classList.add('valid');
+            infoDiv.style.display = 'block';
+            infoDiv.style.borderLeftColor = 'var(--success)';
+            infoDiv.style.background = 'rgba(76, 175, 80, 0.1)';
+            
+            // Provide helpful info
+            if (path.endsWith('.')) {
+                infoText.textContent = 'Object path - will retrieve all parameters under this object';
+            } else {
+                infoText.textContent = 'Parameter path - will retrieve this specific parameter';
+            }
+        } else {
+            input.classList.remove('valid');
+            input.classList.add('invalid');
+            infoDiv.style.display = 'block';
+            infoDiv.style.borderLeftColor = 'var(--error)';
+            infoDiv.style.background = 'rgba(244, 67, 54, 0.1)';
+            infoText.textContent = 'Invalid path format. Must start with "Device."';
+        }
+    }
+    
+    // Real-time validation
+    document.addEventListener('DOMContentLoaded', function() {
+        const getCustomInput = document.getElementById('get-param-path-custom');
+        const setCustomInput = document.getElementById('set-param-path-custom');
+        
+        if (getCustomInput) {
+            getCustomInput.addEventListener('input', () => validateParameterPath('get'));
+            getCustomInput.addEventListener('blur', () => validateParameterPath('get'));
+        }
+        
+        if (setCustomInput) {
+            setCustomInput.addEventListener('input', () => validateParameterPath('set'));
+            setCustomInput.addEventListener('blur', () => validateParameterPath('set'));
+        }
+    });
+    
+    // Set value hint
+    function setValueHint(value) {
+        const valueInput = document.getElementById('param-value');
+        valueInput.value = value;
+        valueInput.focus();
+    }
+    
+    // Enhanced selectParameter function to work with custom input
+    function selectParameter(path) {
+        console.log(`📋 Selected parameter: ${path}`);
+        
+        // For GET parameter
+        const getSelect = document.getElementById('get-param-path');
+        const getCustomInput = document.getElementById('get-param-path-custom');
+        
+        // Try to select in dropdown first
+        let foundInDropdown = false;
+        for (let option of getSelect.options) {
+            if (option.value === path) {
+                option.selected = true;
+                foundInDropdown = true;
+                break;
+            }
+        }
+        
+        // If not in dropdown, switch to custom mode and set the value
+        if (!foundInDropdown) {
+            toggleGetInputMode('custom');
+            getCustomInput.value = path;
+            validateParameterPath('get');
+        }
+        
+        // For SET parameter - same logic
+        const setSelect = document.getElementById('set-param-path');
+        const setCustomInput = document.getElementById('set-param-path-custom');
+        
+        foundInDropdown = false;
+        for (let option of setSelect.options) {
+            if (option.value === path) {
+                option.selected = true;
+                foundInDropdown = true;
+                break;
+            }
+        }
+        
+        if (!foundInDropdown) {
+            toggleSetInputMode('custom');
+            setCustomInput.value = path;
+            validateParameterPath('set');
+        }
+        
+        // Add to history if function exists
+        if (typeof addToParameterHistory === 'function') {
+            addToParameterHistory(path);
+        }
+        
+        // Highlight in tree if function exists
+        if (typeof highlightTreeNode === 'function') {
+            highlightTreeNode(path);
+        }
+        
+        // Show notification if function exists
+        if (typeof showNotification === 'function') {
+            showNotification(`Parameter selected: ${path}`, 'info');
+        }
+    }
+    </script>
+</body>
+</html>
