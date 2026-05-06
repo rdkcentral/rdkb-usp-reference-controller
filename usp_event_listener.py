@@ -359,7 +359,7 @@ class USPEventListener:
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
-            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             "category": category,
             "type": "ValueChange",
             "subscription_id": sub_id,
@@ -381,7 +381,7 @@ class USPEventListener:
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
-            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             "category": category,
             "type": "ObjectCreation",
             "subscription_id": sub_id,
@@ -403,7 +403,7 @@ class USPEventListener:
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
-            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             "category": category,
             "type": "ObjectDeletion",
             "subscription_id": sub_id,
@@ -435,7 +435,7 @@ class USPEventListener:
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
-            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             "category": category,
             "type": "OperationComplete",
             "subscription_id": sub_id,
@@ -469,7 +469,7 @@ class USPEventListener:
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
-            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             "category": category,
             "type": "Event",
             "subscription_id": sub_id,
@@ -532,5 +532,5 @@ class USPEventListener:
 
     def _gen_msg_id(self) -> str:
         self._msg_counter += 1
-        ts = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         return f"evt-listener-{ts}-{self._msg_counter}"

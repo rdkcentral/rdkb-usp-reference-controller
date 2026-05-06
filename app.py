@@ -47,6 +47,10 @@ app = Flask(__name__)
 _sse_clients: List[queue.Queue] = []
 _sse_lock = threading.Lock()
 
+# Limits
+_SSE_QUEUE_MAX = 200      # max items per SSE client queue before old ones are dropped
+_EVENTS_HISTORY_MAX = 500 # max events kept in controller.events history
+
 class USPController:
     """Enhanced USP Controller with dynamic data model discovery and large model support"""
     
@@ -1862,8 +1866,8 @@ def _on_usp_event(event: dict):
         # Store event (max 500)
         with controller._events_lock:
             controller.events.append(event)
-            if len(controller.events) > 500:
-                controller.events = controller.events[-500:]
+            if len(controller.events) > _EVENTS_HISTORY_MAX:
+                controller.events = controller.events[-_EVENTS_HISTORY_MAX:]
             cat = event.get("category", "system")
             controller.event_stats[cat] = controller.event_stats.get(cat, 0) + 1
 
@@ -2373,7 +2377,7 @@ def test_path(test_path):
 def api_events_stream():
     """SSE endpoint — streams USP events to the browser in real time."""
     def event_generator():
-        client_q: queue.Queue = queue.Queue(maxsize=200)
+        client_q: queue.Queue = queue.Queue(maxsize=_SSE_QUEUE_MAX)
         with _sse_lock:
             _sse_clients.append(client_q)
         try:
@@ -2458,7 +2462,8 @@ def api_events_subscribe():
         _event_listener.send_add_subscription(sub_id, notif_type, path, category)
         return jsonify({'success': True, 'message': f'Subscription {sub_id} requested'})
     except Exception as exc:
-        return jsonify({'success': False, 'error': str(exc)}), 500
+        logger.error(f"api_events_subscribe error: {exc}")
+        return jsonify({'success': False, 'error': 'Failed to create subscription'}), 500
 
 
 @app.route('/api/events/subscriptions')
