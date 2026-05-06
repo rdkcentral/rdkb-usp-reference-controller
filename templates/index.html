@@ -101,6 +101,173 @@
         border-color: var(--error);
         box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.2);
     }
+
+    /* ------------------------------------------------------------------ */
+    /* USP Events Panel                                                     */
+    /* ------------------------------------------------------------------ */
+    #events-panel { container-type: inline-size; }
+
+    .events-filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .events-filter-bar .filter-label { font-weight: 600; color: var(--text-secondary); }
+
+    .filter-btn {
+        padding: 4px 14px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(255,255,255,0.07);
+        color: var(--text-secondary);
+        transition: all 0.2s;
+    }
+    .filter-btn:hover { opacity: 0.85; }
+    .filter-btn.active { border-color: currentColor; color: white; }
+    .filter-btn.all.active   { background: #607d8b; }
+    .filter-btn.wifi.active  { background: #1976d2; }
+    .filter-btn.iot.active   { background: #388e3c; }
+    .filter-btn.dac.active   { background: #e65100; }
+    .filter-btn.system.active{ background: #c62828; }
+    .filter-btn.network.active{ background: #f9a825; color: #222; }
+
+    .events-stats-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding: 8px 12px;
+        background: rgba(0,0,0,0.15);
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+    .events-stats-bar .evt-stat { display: flex; align-items: center; gap: 5px; }
+    .evt-stat .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        padding: 0 6px;
+        font-size: 11px;
+        font-weight: 700;
+        background: rgba(255,255,255,0.12);
+    }
+    .evt-stat.wifi   .badge { background: #1976d2; }
+    .evt-stat.iot    .badge { background: #388e3c; }
+    .evt-stat.dac    .badge { background: #e65100; }
+    .evt-stat.system .badge { background: #c62828; }
+    .evt-stat.network .badge { background: #f9a825; color: #222; }
+
+    /* SSE connection indicator */
+    .sse-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.2);
+    }
+    .sse-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #607d8b;
+        transition: background 0.3s;
+    }
+    .sse-dot.connected { background: #4caf50; animation: pulse 2s infinite; }
+    .sse-dot.error     { background: #f44336; }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.4; }
+    }
+
+    .events-table { width: 100%; border-collapse: collapse; }
+    .events-table th {
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-secondary);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .events-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+    .events-table tr:last-child td { border-bottom: none; }
+    .events-table tr.evt-row:hover { background: rgba(255,255,255,0.04); }
+
+    .evt-row td { font-size: 13px; }
+
+    .cat-dot {
+        display: inline-block;
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        flex-shrink: 0;
+    }
+    .cat-dot.wifi    { background: #1976d2; }
+    .cat-dot.iot     { background: #4caf50; }
+    .cat-dot.dac     { background: #ff6d00; }
+    .cat-dot.system  { background: #ef5350; }
+    .cat-dot.network { background: #fdd835; }
+
+    .cat-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .cat-badge.wifi    { background: rgba(25,118,210,0.2);   color: #90caf9; }
+    .cat-badge.iot     { background: rgba(76,175,80,0.2);    color: #a5d6a7; }
+    .cat-badge.dac     { background: rgba(255,109,0,0.2);    color: #ffcc80; }
+    .cat-badge.system  { background: rgba(239,83,80,0.2);    color: #ef9a9a; }
+    .cat-badge.network { background: rgba(253,216,53,0.2);   color: #fff59d; }
+
+    .sev-icon { font-size: 14px; }
+
+    .evt-title { font-weight: 600; }
+    .evt-desc  { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+
+    .evt-detail {
+        display: none;
+        background: rgba(0,0,0,0.25);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin-top: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .events-empty {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-secondary);
+    }
+    .events-empty i { font-size: 2rem; display: block; margin-bottom: 10px; }
+
+    .highlight-flash {
+        animation: flashPanel 1s ease;
+    }
+    @keyframes flashPanel {
+        0%   { box-shadow: 0 0 0 0 rgba(255,109,0,0.7); }
+        50%  { box-shadow: 0 0 0 6px rgba(255,109,0,0.4); }
+        100% { box-shadow: 0 0 0 0 rgba(255,109,0,0); }
+    }
     </style>
 </head>
 <body>
@@ -736,7 +903,136 @@
                 </div>
                 {% endif %}
             </section>
-            
+
+            <!-- ============================================================ -->
+            <!-- USP Events Panel                                              -->
+            <!-- ============================================================ -->
+            <section class="panel full-width" id="events-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-bell"></i> USP Events</span>
+                    <div class="panel-actions" style="display:flex;align-items:center;gap:8px;">
+                        <span class="sse-status" id="sse-status">
+                            <span class="sse-dot" id="sse-dot"></span>
+                            <span id="sse-status-text">Connecting…</span>
+                        </span>
+                        <button class="btn btn-sm btn-warning" onclick="clearEvents()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="exportEvents()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="toggleEventsSettings()">
+                            <i class="fas fa-cog"></i> Settings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings Popover -->
+                <div id="events-settings" style="display:none;background:rgba(0,0,0,0.3);border-radius:8px;padding:14px 16px;margin-bottom:12px;">
+                    <strong style="font-size:13px;"><i class="fas fa-cog"></i> Subscription Settings</strong>
+                    <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;">
+                        Active subscriptions managed by the persistent MQTT listener. 
+                        Use the form below to add custom subscriptions at runtime.
+                    </p>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;" id="sub-status-list">
+                        <!-- Populated by JS -->
+                        <span style="font-size:12px;color:var(--text-secondary);">Loading subscription status…</span>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                        <div>
+                            <label style="font-size:12px;">Subscription ID</label>
+                            <input id="custom-sub-id" type="text" class="form-control" style="width:160px;font-size:12px;" placeholder="my-custom-sub">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;">Notification Type</label>
+                            <select id="custom-sub-type" class="form-control" style="width:160px;font-size:12px;">
+                                <option value="ValueChange">ValueChange</option>
+                                <option value="ObjectCreation">ObjectCreation</option>
+                                <option value="ObjectDeletion">ObjectDeletion</option>
+                                <option value="OperationComplete">OperationComplete</option>
+                                <option value="Event">Event</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;">Reference Path</label>
+                            <input id="custom-sub-path" type="text" class="form-control" style="width:220px;font-size:12px;" placeholder="Device.SomeObject.">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;">Category</label>
+                            <select id="custom-sub-category" class="form-control" style="width:110px;font-size:12px;">
+                                <option value="wifi">WiFi</option>
+                                <option value="iot">IoT</option>
+                                <option value="dac">DAC</option>
+                                <option value="system" selected>System</option>
+                                <option value="network">Network</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success btn-sm" onclick="addCustomSubscription()">
+                            <i class="fas fa-plus"></i> Subscribe
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="events-filter-bar">
+                    <span class="filter-label"><i class="fas fa-filter"></i> Filter:</span>
+                    <button class="filter-btn all active"    onclick="filterEvents('all')"    >🔘 All</button>
+                    <button class="filter-btn wifi"          onclick="filterEvents('wifi')"   >🔵 WiFi</button>
+                    <button class="filter-btn iot"           onclick="filterEvents('iot')"    >🟢 IoT</button>
+                    <button class="filter-btn dac"           onclick="filterEvents('dac')"    >🟠 DAC</button>
+                    <button class="filter-btn system"        onclick="filterEvents('system')" >🔴 System</button>
+                    <button class="filter-btn network"       onclick="filterEvents('network')">🟡 Network</button>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="events-stats-bar">
+                    <div class="evt-stat wifi">
+                        <span class="cat-dot wifi"></span> WiFi: <span class="badge" id="stat-wifi">0</span>
+                    </div>
+                    <div class="evt-stat iot">
+                        <span class="cat-dot iot"></span> IoT: <span class="badge" id="stat-iot">0</span>
+                    </div>
+                    <div class="evt-stat dac">
+                        <span class="cat-dot dac"></span> DAC: <span class="badge" id="stat-dac">0</span>
+                    </div>
+                    <div class="evt-stat system">
+                        <span class="cat-dot system"></span> System: <span class="badge" id="stat-system">0</span>
+                    </div>
+                    <div class="evt-stat network">
+                        <span class="cat-dot network"></span> Network: <span class="badge" id="stat-network">0</span>
+                    </div>
+                    <div style="margin-left:auto;font-weight:600;">
+                        Total: <span id="stat-total">0</span>
+                    </div>
+                </div>
+
+                <!-- Events Table -->
+                <div class="table-container" style="max-height:500px;overflow-y:auto;" id="events-table-container">
+                    <table class="events-table" id="events-table">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;"></th>
+                                <th style="width:80px;">Time</th>
+                                <th style="width:90px;">Category</th>
+                                <th>Event</th>
+                                <th style="width:60px;">Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="events-tbody">
+                            <tr id="events-empty-row">
+                                <td colspan="5">
+                                    <div class="events-empty">
+                                        <i class="fas fa-satellite-dish"></i>
+                                        Waiting for USP events from device…
+                                        <br><small style="color:var(--text-secondary);">Events will appear here in real-time as the device sends notifications.</small>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <!-- Enhanced Data Model Browser -->
             <section class="panel full-width" id="data-model-panel">
                 <div class="panel-title">
@@ -1045,6 +1341,344 @@
             showNotification(`Parameter selected: ${path}`, 'info');
         }
     }
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- USP Events JavaScript                                         -->
+    <!-- ============================================================ -->
+    <script>
+    (function() {
+        'use strict';
+
+        // ----------------------------------------------------------------
+        // State
+        // ----------------------------------------------------------------
+        let _evtSource = null;
+        let _activeFilter = 'all';
+        let _localStats = { wifi: 0, iot: 0, dac: 0, system: 0, network: 0 };
+        const MAX_ROWS = 200;
+
+        // ----------------------------------------------------------------
+        // SSE connection
+        // ----------------------------------------------------------------
+        function connectEventStream() {
+            if (_evtSource) {
+                _evtSource.close();
+            }
+            _evtSource = new EventSource('/api/events/stream');
+            const dot  = document.getElementById('sse-dot');
+            const text = document.getElementById('sse-status-text');
+
+            _evtSource.onopen = function() {
+                dot.className  = 'sse-dot connected';
+                text.textContent = 'Live';
+            };
+
+            _evtSource.onmessage = function(e) {
+                try {
+                    const event = JSON.parse(e.data);
+                    if (event.type === 'heartbeat') return;
+                    prependEventRow(event);
+                    incrementStat(event.category);
+
+                    // If ValueChange, update value in the data model tree live
+                    if (event.type === 'ValueChange' && event.path && event.value !== undefined) {
+                        updateParamValueInTree(event.path, event.value);
+                    }
+
+                    // Flash the software-modules panel for DAC events
+                    if (event.category === 'dac') {
+                        highlightPanel('software-modules-panel');
+                    }
+                } catch (_) {}
+            };
+
+            _evtSource.onerror = function() {
+                dot.className  = 'sse-dot error';
+                text.textContent = 'Reconnecting…';
+                _evtSource.close();
+                setTimeout(connectEventStream, 3000);
+            };
+        }
+
+        // ----------------------------------------------------------------
+        // Severity icon helper
+        // ----------------------------------------------------------------
+        function sevIcon(severity) {
+            const map = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
+            return map[severity] || 'ℹ️';
+        }
+
+        // ----------------------------------------------------------------
+        // Build and prepend a table row for a new event
+        // ----------------------------------------------------------------
+        function prependEventRow(event) {
+            const tbody = document.getElementById('events-tbody');
+            const emptyRow = document.getElementById('events-empty-row');
+            if (emptyRow) emptyRow.remove();
+
+            // Trim oldest rows if over limit
+            while (tbody.rows.length >= MAX_ROWS) {
+                tbody.deleteRow(tbody.rows.length - 1);
+            }
+
+            const cat  = event.category || 'system';
+            const type = event.type || '';
+            const ts   = (event.timestamp || '').split('T')[1] || event.timestamp || '';
+            const title = event.title || type;
+            const desc  = event.description || '';
+
+            const detail = JSON.stringify(event, null, 2);
+
+            const tr = document.createElement('tr');
+            tr.className = `evt-row cat-${cat}`;
+            tr.dataset.category = cat;
+
+            tr.innerHTML = `
+                <td style="text-align:center;">${sevIcon(event.severity)}</td>
+                <td style="white-space:nowrap;font-size:11px;font-family:monospace;">${escHtml(ts)}</td>
+                <td><span class="cat-badge ${cat}">${escHtml(cat.toUpperCase())}</span></td>
+                <td>
+                    <div class="evt-title" style="cursor:pointer;" onclick="toggleEvtDetail(this)">
+                        <span class="cat-dot ${cat}"></span>${escHtml(title)}
+                    </div>
+                    <div class="evt-desc">${escHtml(desc)}</div>
+                    <pre class="evt-detail">${escHtml(detail)}</pre>
+                </td>
+                <td style="font-size:11px;color:var(--text-secondary);">${escHtml(type)}</td>
+            `;
+
+            tbody.insertBefore(tr, tbody.firstChild);
+
+            // Apply current filter
+            applyFilter(tr);
+        }
+
+        function toggleEvtDetail(el) {
+            const detail = el.closest('td').querySelector('.evt-detail');
+            if (detail) detail.style.display = detail.style.display === 'block' ? 'none' : 'block';
+        }
+        window.toggleEvtDetail = toggleEvtDetail;
+
+        // ----------------------------------------------------------------
+        // Stats
+        // ----------------------------------------------------------------
+        function incrementStat(category) {
+            if (!category) return;
+            _localStats[category] = (_localStats[category] || 0) + 1;
+            const el = document.getElementById('stat-' + category);
+            if (el) el.textContent = _localStats[category];
+            const total = Object.values(_localStats).reduce((a, b) => a + b, 0);
+            const totalEl = document.getElementById('stat-total');
+            if (totalEl) totalEl.textContent = total;
+        }
+
+        function loadStatsFromServer() {
+            fetch('/api/events/stats')
+                .then(r => r.json())
+                .then(data => {
+                    const stats = data.stats || {};
+                    for (const [cat, count] of Object.entries(stats)) {
+                        _localStats[cat] = count;
+                        const el = document.getElementById('stat-' + cat);
+                        if (el) el.textContent = count;
+                    }
+                    const totalEl = document.getElementById('stat-total');
+                    if (totalEl) totalEl.textContent = data.total || 0;
+                })
+                .catch(() => {});
+        }
+
+        // ----------------------------------------------------------------
+        // Filtering
+        // ----------------------------------------------------------------
+        function filterEvents(category) {
+            _activeFilter = category;
+
+            // Update button styles
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.classList.contains(category)) btn.classList.add('active');
+            });
+
+            // Show/hide rows
+            document.querySelectorAll('#events-tbody .evt-row').forEach(row => {
+                applyFilter(row);
+            });
+        }
+        window.filterEvents = filterEvents;
+
+        function applyFilter(row) {
+            if (_activeFilter === 'all' || row.dataset.category === _activeFilter) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // Update a parameter value in the data-model tree without reload
+        // ----------------------------------------------------------------
+        function updateParamValueInTree(path, value) {
+            const safeId = path.replace(/\./g, '-').replace(/\s/g, '_');
+            const el = document.getElementById('val-' + safeId);
+            if (el) {
+                el.textContent = value;
+                el.style.transition = 'background 0.4s';
+                el.style.background = 'rgba(76,175,80,0.35)';
+                setTimeout(() => { el.style.background = ''; }, 1500);
+            }
+        }
+        window.updateParamValueInTree = updateParamValueInTree;
+
+        // ----------------------------------------------------------------
+        // Flash a panel briefly
+        // ----------------------------------------------------------------
+        function highlightPanel(panelId) {
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
+            panel.classList.remove('highlight-flash');
+            void panel.offsetWidth; // reflow to restart animation
+            panel.classList.add('highlight-flash');
+            setTimeout(() => panel.classList.remove('highlight-flash'), 1100);
+        }
+
+        // ----------------------------------------------------------------
+        // Clear events
+        // ----------------------------------------------------------------
+        function clearEvents() {
+            fetch('/api/events/clear', { method: 'POST' })
+                .then(() => {
+                    document.getElementById('events-tbody').innerHTML =
+                        '<tr id="events-empty-row"><td colspan="5">' +
+                        '<div class="events-empty"><i class="fas fa-satellite-dish"></i>' +
+                        'Waiting for USP events from device…</div></td></tr>';
+                    _localStats = { wifi: 0, iot: 0, dac: 0, system: 0, network: 0 };
+                    ['wifi','iot','dac','system','network'].forEach(c => {
+                        const el = document.getElementById('stat-' + c);
+                        if (el) el.textContent = '0';
+                    });
+                    const totalEl = document.getElementById('stat-total');
+                    if (totalEl) totalEl.textContent = '0';
+                })
+                .catch(() => {});
+        }
+        window.clearEvents = clearEvents;
+
+        // ----------------------------------------------------------------
+        // Export events as JSON
+        // ----------------------------------------------------------------
+        function exportEvents() {
+            fetch('/api/events')
+                .then(r => r.json())
+                .then(data => {
+                    const blob = new Blob([JSON.stringify(data.events, null, 2)],
+                                         {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `usp-events-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                })
+                .catch(() => {});
+        }
+        window.exportEvents = exportEvents;
+
+        // ----------------------------------------------------------------
+        // Settings popover toggle + subscription status
+        // ----------------------------------------------------------------
+        function toggleEventsSettings() {
+            const el = document.getElementById('events-settings');
+            if (!el) return;
+            el.style.display = el.style.display === 'none' ? '' : 'none';
+            if (el.style.display !== 'none') loadSubscriptionStatus();
+        }
+        window.toggleEventsSettings = toggleEventsSettings;
+
+        function loadSubscriptionStatus() {
+            fetch('/api/events/subscriptions')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('sub-status-list');
+                    if (!container) return;
+                    const subs = data.subscriptions || [];
+                    if (!subs.length) {
+                        container.innerHTML = '<span style="font-size:12px;color:var(--text-secondary);">No subscriptions yet.</span>';
+                        return;
+                    }
+                    container.innerHTML = subs.map(s => {
+                        const color = s.status === 'active' ? '#4caf50'
+                                    : s.status === 'failed' ? '#f44336' : '#ffc107';
+                        return `<span style="font-size:11px;padding:3px 8px;background:rgba(255,255,255,0.07);border-radius:4px;border-left:3px solid ${color};">
+                                    <strong>${escHtml(s.id)}</strong> <span style="color:${color};">(${escHtml(s.status||'?')})</span>
+                                    <br><span style="color:var(--text-secondary);">${escHtml(s.type||'')} on ${escHtml(s.path||'')}</span>
+                                </span>`;
+                    }).join('');
+                })
+                .catch(() => {});
+        }
+
+        function addCustomSubscription() {
+            const id   = (document.getElementById('custom-sub-id')  || {}).value || '';
+            const type = (document.getElementById('custom-sub-type') || {}).value || '';
+            const path = (document.getElementById('custom-sub-path') || {}).value || '';
+            const cat  = (document.getElementById('custom-sub-category') || {}).value || 'system';
+
+            if (!id || !type || !path) {
+                alert('Please fill in Subscription ID, Type and Path');
+                return;
+            }
+            fetch('/api/events/subscribe', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id, type, path, category: cat}),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Subscription "${id}" requested successfully.`);
+                    loadSubscriptionStatus();
+                } else {
+                    alert('Failed: ' + (data.error || 'unknown error'));
+                }
+            })
+            .catch(() => alert('Request failed'));
+        }
+        window.addCustomSubscription = addCustomSubscription;
+
+        // ----------------------------------------------------------------
+        // HTML escape utility
+        // ----------------------------------------------------------------
+        function escHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // ----------------------------------------------------------------
+        // Boot: load existing events + connect SSE
+        // ----------------------------------------------------------------
+        function loadExistingEvents() {
+            fetch('/api/events?limit=100')
+                .then(r => r.json())
+                .then(data => {
+                    // Render oldest→newest so prepend produces newest-on-top
+                    const events = (data.events || []).slice().reverse();
+                    events.forEach(prependEventRow);
+                })
+                .catch(() => {});
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadExistingEvents();
+            loadStatsFromServer();
+            connectEventStream();
+        });
+
+    })();
     </script>
 </body>
 </html>

@@ -21,13 +21,17 @@
 Flask USP Controller with Dynamic Data Model Discovery and Large Model Support
 Enhanced version with chunked discovery for large data models like DeviceInfo
 """
-from flask import Flask, request, render_template, jsonify, redirect, url_for
+from flask import Flask, request, render_template, jsonify, redirect, url_for, Response, stream_with_context
 import json
 import subprocess
 import re
 import time
 import logging
 import os
+import queue
+import uuid
+import threading
+import atexit
 from html import escape as html_escape
 from typing import Dict, List, Any, Optional, Set
 
@@ -38,6 +42,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
+
+# SSE: list of per-client queues; protected by its own lock
+_sse_clients: List[queue.Queue] = []
+_sse_lock = threading.Lock()
 
 class USPController:
     """Enhanced USP Controller with dynamic data model discovery and large model support"""
@@ -69,6 +77,14 @@ class USPController:
         self.dmcli_available = False
         self.discovered_paths = []
         self.supported_data_models = {}
+        
+        # Event tracking
+        self.events: List[Dict] = []
+        self.event_stats: Dict[str, int] = {
+            'wifi': 0, 'iot': 0, 'dac': 0, 'system': 0, 'network': 0
+        }
+        self._events_lock = threading.Lock()
+        self._model_lock = threading.Lock()
         
         # MQTT USP Client path - matching your existing setup
         self.mqtt_client_path = './mqtt-usp-client.py'
@@ -1783,6 +1799,26 @@ class USPController:
                 'discovered_paths_count': 0
             }
     
+    def _update_model_value(self, path: str, value: str):
+        """Update a parameter value in the in-memory data_model after a ValueChange event."""
+        try:
+            parts = path.strip('.').split('.')
+            with self._model_lock:
+                current = self.data_model
+                for part in parts[:-1]:
+                    node = current.get(part)
+                    if node is None:
+                        return
+                    if isinstance(node, dict) and 'children' in node:
+                        current = node['children']
+                    else:
+                        return
+                leaf_key = parts[-1]
+                if leaf_key in current and isinstance(current[leaf_key], dict):
+                    current[leaf_key]['value'] = value
+        except Exception as exc:
+            self.log(f"_update_model_value error for {path}: {exc}")
+
     def log(self, message: str):
         """Add log message"""
         timestamp = time.strftime('%H:%M:%S')
@@ -1796,6 +1832,76 @@ class USPController:
 
 # Global controller instance
 controller = USPController()
+
+# ---------------------------------------------------------------------------
+# USP Event Listener — started as a daemon thread
+# ---------------------------------------------------------------------------
+def _on_usp_event(event: dict):
+    """Callback invoked by USPEventListener for every inbound NOTIFY."""
+    try:
+        # For ValueChange: record previous value, then update model
+        if event.get("type") == "ValueChange":
+            path = event.get("path", "")
+            # Look up current value in data_model to store as previous_value
+            try:
+                parts = path.strip('.').split('.')
+                with controller._model_lock:
+                    cur = controller.data_model
+                    for part in parts[:-1]:
+                        node = cur.get(part)
+                        if node is None:
+                            break
+                        cur = node.get('children', {}) if isinstance(node, dict) else {}
+                    leaf = cur.get(parts[-1], {})
+                    prev = leaf.get('value') if isinstance(leaf, dict) else None
+                event["previous_value"] = prev
+            except Exception:
+                event["previous_value"] = None
+            controller._update_model_value(path, event.get("value", ""))
+
+        # Store event (max 500)
+        with controller._events_lock:
+            controller.events.append(event)
+            if len(controller.events) > 500:
+                controller.events = controller.events[-500:]
+            cat = event.get("category", "system")
+            controller.event_stats[cat] = controller.event_stats.get(cat, 0) + 1
+
+        # Push to all SSE clients
+        event_json = json.dumps(event)
+        with _sse_lock:
+            dead = []
+            for q in _sse_clients:
+                try:
+                    q.put_nowait(event_json)
+                except queue.Full:
+                    dead.append(q)
+            for q in dead:
+                _sse_clients.remove(q)
+
+        logger.info(f"USP Event: [{event.get('category')}] {event.get('title')} — {event.get('description', '')}")
+
+    except Exception as exc:
+        logger.error(f"_on_usp_event error: {exc}")
+
+
+try:
+    from usp_event_listener import USPEventListener
+    _event_listener = USPEventListener(
+        config=controller.config,
+        event_callback=_on_usp_event,
+        log_fn=controller.log,
+    )
+    _event_listener.start()
+
+    def _shutdown_listener():
+        _event_listener.stop()
+
+    atexit.register(_shutdown_listener)
+    logger.info("USPEventListener started successfully")
+except Exception as _el_exc:
+    _event_listener = None
+    logger.warning(f"USPEventListener could not be started: {_el_exc}")
 
 def count_data_model_parameters(data_model, count=0):
     """Count total parameters in hierarchical data model"""
@@ -2262,6 +2368,108 @@ def test_path(test_path):
             'path': test_path,
             'error': str(e)
         })
+
+@app.route('/api/events/stream')
+def api_events_stream():
+    """SSE endpoint — streams USP events to the browser in real time."""
+    def event_generator():
+        client_q: queue.Queue = queue.Queue(maxsize=200)
+        with _sse_lock:
+            _sse_clients.append(client_q)
+        try:
+            # Send a heartbeat immediately so the browser knows we're alive
+            yield "data: {\"type\":\"heartbeat\"}\n\n"
+            while True:
+                try:
+                    data = client_q.get(timeout=30)
+                    yield f"data: {data}\n\n"
+                except queue.Empty:
+                    # Keep-alive comment
+                    yield ": heartbeat\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                try:
+                    _sse_clients.remove(client_q)
+                except ValueError:
+                    pass
+
+    return Response(
+        stream_with_context(event_generator()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.route('/api/events')
+def api_events():
+    """Return the last N events as JSON, optionally filtered by category."""
+    category = request.args.get('category', '').strip().lower()
+    limit = min(int(request.args.get('limit', 100)), 500)
+    with controller._events_lock:
+        events = list(controller.events)
+    if category and category != 'all':
+        events = [e for e in events if e.get('category') == category]
+    return jsonify({
+        'events': events[-limit:],
+        'total': len(events),
+    })
+
+
+@app.route('/api/events/clear', methods=['DELETE', 'POST'])
+def api_events_clear():
+    """Clear the event history."""
+    with controller._events_lock:
+        controller.events.clear()
+        for k in controller.event_stats:
+            controller.event_stats[k] = 0
+    return jsonify({'success': True, 'message': 'Event history cleared'})
+
+
+@app.route('/api/events/stats')
+def api_events_stats():
+    """Return per-category event counts."""
+    with controller._events_lock:
+        stats = dict(controller.event_stats)
+        total = sum(stats.values())
+    return jsonify({'stats': stats, 'total': total})
+
+
+@app.route('/api/events/subscribe', methods=['POST'])
+def api_events_subscribe():
+    """Subscribe to an additional path at runtime."""
+    data = request.get_json(silent=True) or {}
+    sub_id = data.get('id', '').strip()
+    notif_type = data.get('type', '').strip()
+    path = data.get('path', '').strip()
+    category = data.get('category', 'system').strip()
+
+    if not sub_id or not notif_type or not path:
+        return jsonify({'success': False, 'error': 'id, type and path are required'}), 400
+
+    if _event_listener is None:
+        return jsonify({'success': False, 'error': 'Event listener not running'}), 503
+
+    try:
+        _event_listener.send_add_subscription(sub_id, notif_type, path, category)
+        return jsonify({'success': True, 'message': f'Subscription {sub_id} requested'})
+    except Exception as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 500
+
+
+@app.route('/api/events/subscriptions')
+def api_events_subscriptions():
+    """Return active subscription info."""
+    if _event_listener is None:
+        return jsonify({'subscriptions': [], 'error': 'listener not running'})
+    with _event_listener._lock:
+        subs = list(_event_listener.subscriptions.values())
+    return jsonify({'subscriptions': subs})
+
 
 if __name__ == '__main__':
     print("=" * 60)
