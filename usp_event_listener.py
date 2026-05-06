@@ -41,10 +41,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 SUBSCRIPTIONS = [
     # WiFi
-    {"id": "sub-wifi-radio-enable",  "type": "ValueChange",    "path": "Device.WiFi.Radio.",              "category": "wifi"},
-    {"id": "sub-wifi-ssid-change",   "type": "ValueChange",    "path": "Device.WiFi.SSID.",               "category": "wifi"},
-    {"id": "sub-wifi-client-join",   "type": "ObjectCreation", "path": "Device.WiFi.AccessPoint.",        "category": "wifi"},
-    {"id": "sub-wifi-client-leave",  "type": "ObjectDeletion", "path": "Device.WiFi.AccessPoint.",        "category": "wifi"},
+    {"id": "sub-wifi-radio-enable",  "type": "ValueChange",    "path": "Device.WiFi.Radio.",              "category": "wifi", "required": False},
+    {"id": "sub-wifi-ssid-change",   "type": "ValueChange",    "path": "Device.WiFi.SSID.",               "category": "wifi", "required": False},
+    {"id": "sub-wifi-client-join",   "type": "ObjectCreation", "path": "Device.WiFi.AccessPoint.",        "category": "wifi", "required": False},
+    {"id": "sub-wifi-client-leave",  "type": "ObjectDeletion", "path": "Device.WiFi.AccessPoint.",        "category": "wifi", "required": False},
     # IoT / Hosts
     {"id": "sub-host-join",          "type": "ObjectCreation", "path": "Device.Hosts.Host.",              "category": "iot"},
     {"id": "sub-host-leave",         "type": "ObjectDeletion", "path": "Device.Hosts.Host.",              "category": "iot"},
@@ -110,6 +110,8 @@ class USPEventListener:
         self._client: mqtt.Client = None
         self._props: mqttprops.Properties = None
         self._msg_counter = 0
+        self._controller_instance_path: str = None
+        self._pending_controller_resolve = False
 
     # ------------------------------------------------------------------
     # Public API
@@ -186,6 +188,8 @@ class USPEventListener:
 
     def _delayed_subscribe(self):
         time.sleep(2)
+        self._resolve_controller_path()
+        time.sleep(2)
         self.create_subscriptions()
 
     def _on_disconnect(self, client, userdata, flags, rc, properties=None):
@@ -208,10 +212,12 @@ class USPEventListener:
                 self._handle_notify(in_usp)
             elif msg_type == usp_msg.Header.ADD_RESP:
                 self._handle_add_resp(in_usp)
+            elif msg_type == usp_msg.Header.GET_RESP:
+                self._handle_get_resp(in_usp)
             elif msg_type == usp_msg.Header.DELETE_RESP:
                 pass  # cleanup confirmation
             elif msg_type == usp_msg.Header.ERROR:
-                self._log(f"USPEventListener received ERROR msg_id={in_usp.header.msg_id}")
+                self._handle_error(in_usp)
 
         except Exception as exc:
             self._log(f"USPEventListener _on_message error: {exc}")
@@ -229,6 +235,7 @@ class USPEventListener:
                     sub_def["type"],
                     sub_def["path"],
                     sub_def["category"],
+                    sub_def.get("required", True),
                 )
                 time.sleep(0.3)  # small gap between ADDs
             except Exception as exc:
@@ -246,10 +253,13 @@ class USPEventListener:
             except Exception as exc:
                 self._log(f"USPEventListener cleanup failed for {inst_path}: {exc}")
 
-    def send_add_subscription(self, sub_id: str, notif_type: str, ref_path: str, category: str):
+    def send_add_subscription(self, sub_id: str, notif_type: str, ref_path: str, category: str,
+                              required: bool = True):
         """Build and publish a USP ADD message to create a subscription."""
         msg_id = self._gen_msg_id()
         from_id = self.config.get('from_id', 'self::usp-controller')
+        with self._lock:
+            recipient = self._controller_instance_path or "Device.LocalAgent.Controller."
 
         out_msg = usp_msg.Msg()
         out_msg.header.msg_id = msg_id
@@ -265,7 +275,7 @@ class USPEventListener:
             ("ID",         sub_id,      True),
             ("NotifType",  notif_type,  True),
             ("ReferenceList", ref_path, True),
-            ("Recipient",  from_id,     True),
+            ("Recipient",  recipient or from_id, True),
         ]:
             ps = create_obj.param_settings.add()
             ps.param = param
@@ -276,11 +286,13 @@ class USPEventListener:
 
         with self._lock:
             self._pending_add[msg_id] = {"sub_id": sub_id, "category": category,
-                                          "path": ref_path, "type": notif_type}
+                                         "path": ref_path, "type": notif_type,
+                                         "required": required}
             # Pre-register so we know it's pending
             self.subscriptions[sub_id] = {
                 "id": sub_id, "type": notif_type, "path": ref_path,
-                "category": category, "status": "pending", "instance_path": None
+                "category": category, "status": "pending", "instance_path": None,
+                "required": required,
             }
 
         self._publish_record(out_msg)
@@ -323,11 +335,84 @@ class USPEventListener:
                                 f"USPEventListener subscription already exists on device, "
                                 f"treating as active: {sub_id}"
                             )
+                        elif not pending.get("required", True):
+                            self.subscriptions[sub_id]["status"] = "optional_skipped"
+                            self._log(
+                                f"USPEventListener optional subscription skipped: {sub_id} — {err}"
+                            )
                         else:
                             self.subscriptions[sub_id]["status"] = "failed"
                             self._log(
                                 f"USPEventListener subscription failed: {sub_id} — {err}"
                             )
+
+    def _handle_get_resp(self, in_usp: usp_msg.Msg):
+        """Handle GET response to resolve controller instance path."""
+        with self._lock:
+            if not self._pending_controller_resolve:
+                return
+            self._pending_controller_resolve = False
+
+        try:
+            get_resp = in_usp.body.response.get_resp
+            from_id = self.config.get('from_id', 'self::usp-controller')
+            for req_result in get_resp.req_path_results:
+                for resolved in req_result.resolved_path_results:
+                    path = resolved.resolved_path
+                    params = dict(resolved.result_params)
+                    endpoint_id = params.get("EndpointID", "")
+                    if not endpoint_id:
+                        for key, value in params.items():
+                            if key.endswith(".EndpointID"):
+                                endpoint_id = value
+                                break
+                    if endpoint_id == from_id:
+                        with self._lock:
+                            self._controller_instance_path = path
+                        self._log(f"USPEventListener resolved controller path: {path}")
+                        return
+
+            self._log("USPEventListener controller instance not found in GET_RESP, using fallback table path")
+        except Exception as exc:
+            self._log(f"USPEventListener _handle_get_resp error: {exc}")
+
+    def _handle_error(self, in_usp: usp_msg.Msg):
+        msg_id = in_usp.header.msg_id
+        with self._lock:
+            pending = self._pending_add.pop(msg_id, None)
+
+        if pending:
+            sub_id = pending["sub_id"]
+            err_code = in_usp.body.error.err_code
+            err = in_usp.body.error.err_msg
+            with self._lock:
+                if sub_id in self.subscriptions:
+                    if pending.get("required", True):
+                        self.subscriptions[sub_id]["status"] = "failed"
+                        self._log(f"USPEventListener subscription failed: {sub_id} — [{err_code}] {err}")
+                    else:
+                        self.subscriptions[sub_id]["status"] = "optional_skipped"
+                        self._log(f"USPEventListener optional subscription skipped: {sub_id} — [{err_code}] {err}")
+            return
+
+        self._log(f"USPEventListener received ERROR msg_id={msg_id}")
+
+    def _resolve_controller_path(self):
+        """Send GET for Device.LocalAgent.Controller. to find our controller instance."""
+        try:
+            out_msg = usp_msg.Msg()
+            out_msg.header.msg_id = self._gen_msg_id()
+            out_msg.header.msg_type = usp_msg.Header.GET
+            get_msg = usp_msg.Get()
+            get_msg.param_paths.append("Device.LocalAgent.Controller.")
+            out_msg.body.request.get.CopyFrom(get_msg)
+            with self._lock:
+                self._pending_controller_resolve = True
+                self._controller_instance_path = "Device.LocalAgent.Controller."
+            self._publish_record(out_msg)
+            self._log("USPEventListener sent GET for Device.LocalAgent.Controller.")
+        except Exception as exc:
+            self._log(f"USPEventListener _resolve_controller_path error: {exc}")
 
     # ------------------------------------------------------------------
     # NOTIFY handler and dispatcher
