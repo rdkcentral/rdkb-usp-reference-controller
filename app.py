@@ -57,7 +57,7 @@ class USPController:
     def __init__(self):
         # Default configuration - matching your existing pattern
         self.config = {
-            'broker': "10.26.60.86",
+            'broker': "10.2.175.86",
             'broker_port': "1883",
             'broker_topic': "/usp/controller",
             'broker_agent': "/usp/agent",
