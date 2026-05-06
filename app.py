@@ -28,6 +28,7 @@ import re
 import time
 import logging
 import os
+from html import escape as html_escape
 from typing import Dict, List, Any, Optional, Set
 
 # Configure logging
@@ -1806,40 +1807,67 @@ def count_data_model_parameters(data_model, count=0):
                 count = count_data_model_parameters(value['children'], count)
     return count
 
+def _js_str(path):
+    """Escape a path for safe use inside a single-quoted JS string literal in an HTML attribute."""
+    # Escape backslashes first, then single quotes
+    return path.replace('\\', '\\\\').replace("'", "\\'")
+
 def render_data_model(data_model, prefix="", level=0):
-    """Render data model as HTML tree with size information"""
+    """Render data model as HTML tree with interactive features"""
     html = ""
-    indent = "&nbsp;" * (level * 4)
-    
+
     for key, value in data_model.items():
         if isinstance(value, dict):
             if value.get('type') == 'parameter':
-                path = value.get('path', f"{prefix}.{key}")
-                param_value = value.get("value", "N/A")
-                param_type = value.get("dataType", "unknown")
-                
-                html += f'<div class="tree-node parameter" onclick="selectParameter(\'{path}\')" title="Click to select this parameter">'
-                html += f'{indent}📄 <strong>{key}:</strong> '
-                html += f'<span class="parameter-value">{param_value}</span> '
-                html += f'<span class="parameter-type">({param_type})</span>'
+                path = value.get('path', f"{prefix}.{key}".lstrip('.'))
+                param_value = html_escape(str(value.get("value", "N/A")))
+                param_type = html_escape(value.get("dataType", "unknown"))
+                access = value.get("access", "readwrite")
+                safe_id = html_escape(path.replace('.', '-').replace(' ', '_'))
+                access_icon = '🔒' if access == 'readonly' else '✏️'
+                type_class = f"type-{param_type.lower().replace(' ', '-')}"
+                js_path = _js_str(path)
+                attr_path = html_escape(path)
+
+                html += f'<div class="tree-node parameter" data-path="{attr_path}" data-access="{html_escape(access)}" onclick="selectParameter(\'{js_path}\')" title="Click to select this parameter">'
+                html += f'<span class="access-icon" title="{html_escape(access)}">{access_icon}</span>'
+                html += f'<span class="param-name">{html_escape(key)}</span>'
+                html += f'<span class="param-value" id="val-{safe_id}">{param_value}</span>'
+                html += f'<span class="param-type-badge {type_class}">{param_type}</span>'
+                html += f'<button class="btn-refresh-param" onclick="event.stopPropagation(); refreshParam(\'{js_path}\')" title="Refresh value">↻</button>'
+                if access != 'readonly':
+                    html += f'<button class="btn-edit-param" onclick="event.stopPropagation(); editParam(\'{js_path}\')" title="Edit value">✎</button>'
+                html += f'<button class="btn-copy-path" onclick="event.stopPropagation(); copyPath(\'{js_path}\')" title="Copy path">📋</button>'
                 html += '</div>'
+
             elif value.get('type') == 'object' and 'children' in value:
                 child_count = len(value['children'])
                 is_large = child_count > 20
                 icon = "📁" if not is_large else "📂"
                 size_info = f" ({child_count} items)" if child_count > 5 else ""
                 large_indicator = " <span class='large-model'>LARGE</span>" if is_large else ""
-                
-                html += f'<div class="tree-node object">'
-                html += f'{indent}{icon} <strong>{key}/</strong>{size_info}{large_indicator}'
+                full_path = f"{prefix}.{key}".lstrip('.')
+                category = controller.categorize_data_model(key) if level == 0 else ""
+                js_full_path = _js_str(full_path)
+                attr_full_path = html_escape(full_path)
+
+                html += f'<div class="tree-node object" data-path="{attr_full_path}" data-category="{html_escape(category)}">'
+                html += f'<span class="node-toggle" onclick="event.stopPropagation(); toggleNode(this)">▶</span>'
+                html += f'<span class="node-label">{icon} <strong>{html_escape(key)}/</strong>{size_info}{large_indicator}</span>'
+                html += f'<button class="btn-copy-path" onclick="event.stopPropagation(); copyPath(\'{js_full_path}\')" title="Copy path">📋</button>'
                 html += '</div>'
-                
-                # Only expand large models if specifically requested
+
+                html += '<div class="node-children" style="display:none;">'
                 if not is_large or level < 2:
-                    html += render_data_model(value['children'], f"{prefix}.{key}", level + 1)
-                elif is_large:
-                    html += f'<div class="tree-node collapsed">{indent}&nbsp;&nbsp;&nbsp;&nbsp;... (large model - click to expand)</div>'
-    
+                    html += render_data_model(value['children'], full_path, level + 1)
+                else:
+                    large_path = f"{full_path}."
+                    js_large_path = _js_str(large_path)
+                    html += f'<div class="tree-node collapsed large-placeholder" data-path="{attr_full_path}" onclick="expandLargeModel(\'{js_large_path}\', this)">'
+                    html += f'⟳ Click to load {child_count} items from {html_escape(full_path)}...'
+                    html += '</div>'
+                html += '</div>'
+
     return html
 
 # Flask Routes
@@ -1892,6 +1920,63 @@ def api_data_model_summary():
     """API endpoint for data model summary including large model info"""
     summary = controller.get_data_model_summary()
     return jsonify(summary)
+
+@app.route('/api/get_parameter_ajax')
+def api_get_parameter_ajax():
+    """AJAX endpoint to fetch a live parameter value"""
+    path = request.args.get('path', '').strip()
+    if not path:
+        return jsonify({'success': False, 'error': 'No path provided'})
+    try:
+        result = controller.get_parameter_chunked(path)
+        if result.get('success'):
+            return jsonify(result)
+        # Log the real error server-side but return a safe message to the client
+        controller.log(f"get_parameter_ajax failed for {path}: {result.get('error', 'unknown')}")
+        return jsonify({'success': False, 'error': 'Parameter fetch failed', 'path': path})
+    except Exception as exc:
+        controller.log(f"get_parameter_ajax exception for {path}: {exc}")
+        return jsonify({'success': False, 'error': 'Parameter fetch failed'})
+
+@app.route('/api/set_parameter_ajax', methods=['POST'])
+def api_set_parameter_ajax():
+    """AJAX endpoint to set a parameter value"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON body'})
+    path = data.get('path', '').strip()
+    value = data.get('value', '')
+    if not path:
+        return jsonify({'success': False, 'error': 'Missing path'})
+    try:
+        result = controller.set_parameter(path, str(value))
+        if result.get('success'):
+            return jsonify(result)
+        controller.log(f"set_parameter_ajax failed for {path}: {result.get('error', 'unknown')}")
+        return jsonify({'success': False, 'error': 'Parameter set failed', 'path': path})
+    except Exception as exc:
+        controller.log(f"set_parameter_ajax exception for {path}: {exc}")
+        return jsonify({'success': False, 'error': 'Parameter set failed'})
+
+@app.route('/api/expand_model')
+def api_expand_model():
+    """AJAX endpoint to lazy-load a large model sub-tree"""
+    path = request.args.get('path', '').strip()
+    if not path:
+        return jsonify({'success': False, 'error': 'No path provided'})
+    try:
+        result = controller.get_large_object_chunked(path)
+        if result.get('success'):
+            mini_model = {}
+            for param_name, value in result.get('data', {}).items():
+                controller.add_usp_to_hierarchical_model(mini_model, path.rstrip('.'), {param_name: value})
+            html_content = render_data_model(mini_model)
+            return jsonify({'success': True, 'html': html_content})
+        controller.log(f"expand_model failed for {path}: {result.get('error', 'unknown')}")
+        return jsonify({'success': False, 'error': 'Model expansion failed'})
+    except Exception as exc:
+        controller.log(f"expand_model exception for {path}: {exc}")
+        return jsonify({'success': False, 'error': 'Model expansion failed'})
 
 @app.route('/rediscover', methods=['POST'])
 def rediscover_data_models():

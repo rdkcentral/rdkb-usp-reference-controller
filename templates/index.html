@@ -762,8 +762,12 @@
                     </div>
                     <div class="model-search">
                         <input type="text" id="model-search" placeholder="Search parameters..." class="form-control">
+                        <button class="btn-clear-search" onclick="clearSearch()" title="Clear search">✕</button>
+                        <span class="search-result-count" id="search-result-count"></span>
                     </div>
                 </div>
+                
+                <div class="category-chips" id="category-chips"></div>
                 
                 <div class="data-model-tree" id="data-model-tree">
                     {{ render_data_model(data_model) | safe }}
