@@ -157,21 +157,24 @@ class USPEventListener:
         self._props.ResponseTopic = topic
 
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
-                             client_id=f"usp-event-listener-{uuid.uuid4().hex[:8]}")
+                             client_id=f"usp-event-listener-{uuid.uuid4().hex[:8]}",
+                             protocol=mqtt.MQTTv5)
         client.on_connect = self._on_connect
         client.on_message = self._on_message
         client.on_disconnect = self._on_disconnect
         self._client = client
 
-        client.connect(broker, port, keepalive=60)
+        client.connect(broker, port, keepalive=60, clean_start=True)
         client.loop_forever()
 
     # ------------------------------------------------------------------
     # MQTT callbacks
     # ------------------------------------------------------------------
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
-        if rc == 0:
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+        connected = (reason_code == 0 or
+                     (hasattr(reason_code, 'value') and reason_code.value == 0))
+        if connected:
             self._log("USPEventListener connected to broker")
             topic = self.config.get('broker_topic', '/usp/controller')
             client.subscribe(topic)
@@ -179,7 +182,7 @@ class USPEventListener:
             # Small delay then create subscriptions
             threading.Thread(target=self._delayed_subscribe, daemon=True).start()
         else:
-            self._log(f"USPEventListener connect failed rc={rc}")
+            self._log(f"USPEventListener connect failed reason_code={reason_code}")
 
     def _delayed_subscribe(self):
         time.sleep(2)
@@ -307,10 +310,24 @@ class USPEventListener:
                 self._log(f"USPEventListener subscription active: {sub_id} → {inst_path}")
             elif status.HasField('oper_failure'):
                 err = status.oper_failure.err_msg
+                err_code = status.oper_failure.err_code
+                # TR-369 error 7004 = "Record already exists"; treat as active
+                already_exists = (err_code == 7004 or
+                                  "already exists" in err.lower() or
+                                  "duplicate" in err.lower())
                 with self._lock:
                     if sub_id in self.subscriptions:
-                        self.subscriptions[sub_id]["status"] = "failed"
-                self._log(f"USPEventListener subscription failed: {sub_id} — {err}")
+                        if already_exists:
+                            self.subscriptions[sub_id]["status"] = "active"
+                            self._log(
+                                f"USPEventListener subscription already exists on device, "
+                                f"treating as active: {sub_id}"
+                            )
+                        else:
+                            self.subscriptions[sub_id]["status"] = "failed"
+                            self._log(
+                                f"USPEventListener subscription failed: {sub_id} — {err}"
+                            )
 
     # ------------------------------------------------------------------
     # NOTIFY handler and dispatcher
@@ -348,9 +365,15 @@ class USPEventListener:
         vc = notify.value_change
         path = vc.param_path
         value = vc.param_value
-        meta = _NOTIF_META.get(sub_id, {})
-        title = meta.get("title", "Value Changed")
-        severity = meta.get("severity", "info")
+        meta = _NOTIF_META.get(sub_id)
+        if meta:
+            title = meta.get("title", "Value Changed")
+            severity = meta.get("severity", "info")
+        else:
+            classified = self._classify_unknown_subscription(sub_id, path)
+            title = classified["title"]
+            severity = classified["severity"]
+            category = classified["category"]
 
         # Determine boot detection
         if sub_id == "sub-device-boot" or (path and "Boot" in path):
@@ -375,9 +398,15 @@ class USPEventListener:
     def handle_object_creation(self, notify, sub_id: str, category: str):
         oc = notify.obj_creation
         obj_path = oc.obj_path
-        meta = _NOTIF_META.get(sub_id, {})
-        title = meta.get("title", "Object Created")
-        severity = meta.get("severity", "success")
+        meta = _NOTIF_META.get(sub_id)
+        if meta:
+            title = meta.get("title", "Object Created")
+            severity = meta.get("severity", "success")
+        else:
+            classified = self._classify_unknown_subscription(sub_id, obj_path)
+            title = classified["title"]
+            severity = classified["severity"]
+            category = classified["category"]
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
@@ -397,9 +426,15 @@ class USPEventListener:
     def handle_object_deletion(self, notify, sub_id: str, category: str):
         od = notify.obj_deletion
         obj_path = od.obj_path
-        meta = _NOTIF_META.get(sub_id, {})
-        title = meta.get("title", "Object Deleted")
-        severity = meta.get("severity", "warning")
+        meta = _NOTIF_META.get(sub_id)
+        if meta:
+            title = meta.get("title", "Object Deleted")
+            severity = meta.get("severity", "warning")
+        else:
+            classified = self._classify_unknown_subscription(sub_id, obj_path)
+            title = classified["title"]
+            severity = classified["severity"]
+            category = classified["category"]
 
         event = {
             "id": f"evt-{uuid.uuid4().hex}",
@@ -455,10 +490,15 @@ class USPEventListener:
         obj_path = ev.obj_path
         event_name = ev.event_name
         params = dict(ev.params)
-        meta = _NOTIF_META.get(sub_id, {})
-
-        title = meta.get("title", "Device Event")
-        severity = meta.get("severity", "info")
+        meta = _NOTIF_META.get(sub_id)
+        if meta:
+            title = meta.get("title", "Device Event")
+            severity = meta.get("severity", "info")
+        else:
+            classified = self._classify_unknown_subscription(sub_id, obj_path, event_name)
+            title = classified["title"]
+            severity = classified["severity"]
+            category = classified["category"]
 
         if "Boot" in event_name:
             title = "Device Rebooted"
@@ -485,6 +525,46 @@ class USPEventListener:
     # ------------------------------------------------------------------
     # Helper methods
     # ------------------------------------------------------------------
+
+    def _classify_unknown_subscription(self, sub_id: str, path: str = "",
+                                       event_name: str = "") -> dict:
+        """Classify a subscription not found in _NOTIF_META using heuristics."""
+        title = "Device Notification"
+        severity = "info"
+        category = "system"
+
+        sid_lower = sub_id.lower()
+        path_lower = path.lower()
+
+        # Category by path
+        if "wifi" in path_lower:
+            category = "wifi"
+        elif "hosts" in path_lower or "host." in path_lower:
+            category = "iot"
+        elif "softwaremodules" in path_lower:
+            category = "dac"
+        elif "ip." in path_lower or "ethernet" in path_lower:
+            category = "network"
+
+        # Title / severity by subscription ID or event name
+        if "boot" in sid_lower or "boot" in event_name.lower():
+            title = "Device Boot Event"
+            severity = "warning"
+            category = "system"
+        elif event_name == "Device.Boot!":
+            title = "Device Rebooted"
+            severity = "warning"
+            category = "system"
+        elif "password" in sid_lower or "users" in path_lower:
+            title = "User Password Changed"
+            severity = "warning"
+            category = "system"
+        elif "periodicinform" in sid_lower:
+            title = "Periodic Inform Interval Changed"
+            severity = "info"
+            category = "system"
+
+        return {"title": title, "severity": severity, "category": category}
 
     def _dispatch(self, event: dict):
         try:

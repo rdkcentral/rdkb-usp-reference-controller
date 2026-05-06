@@ -1015,12 +1015,13 @@
                                 <th style="width:80px;">Time</th>
                                 <th style="width:90px;">Category</th>
                                 <th>Event</th>
+                                <th style="width:140px;font-family:monospace;">Sub ID</th>
                                 <th style="width:60px;">Type</th>
                             </tr>
                         </thead>
                         <tbody id="events-tbody">
                             <tr id="events-empty-row">
-                                <td colspan="5">
+                                <td colspan="6">
                                     <div class="events-empty">
                                         <i class="fas fa-satellite-dish"></i>
                                         Waiting for USP events from device…
@@ -1426,7 +1427,17 @@
             const type = event.type || '';
             const ts   = (event.timestamp || '').split('T')[1] || event.timestamp || '';
             const title = event.title || type;
-            const desc  = event.description || '';
+            const subId = event.subscription_id || '';
+
+            // Build a human-friendly detail line based on notification type
+            let detailLine = event.description || '';
+            if (type === 'ValueChange' && event.path) {
+                detailLine = `<span style="font-family:monospace;font-size:11px;">${escHtml(event.path)}</span>` +
+                             ` = <strong>${escHtml(String(event.value ?? ''))}</strong>`;
+            } else if (type === 'Event' && event.event_name) {
+                const causeVal = (event.params && event.params['Cause']) ? ` — Cause: ${escHtml(event.params['Cause'])}` : '';
+                detailLine = `<em>${escHtml(event.event_name)}</em>${causeVal}`;
+            }
 
             const detail = JSON.stringify(event, null, 2);
 
@@ -1442,9 +1453,10 @@
                     <div class="evt-title" style="cursor:pointer;" onclick="toggleEvtDetail(this)">
                         <span class="cat-dot ${cat}"></span>${escHtml(title)}
                     </div>
-                    <div class="evt-desc">${escHtml(desc)}</div>
+                    <div class="evt-desc">${detailLine}</div>
                     <pre class="evt-detail">${escHtml(detail)}</pre>
                 </td>
+                <td style="font-size:10px;font-family:monospace;word-break:break-all;color:var(--text-secondary);">${escHtml(subId)}</td>
                 <td style="font-size:11px;color:var(--text-secondary);">${escHtml(type)}</td>
             `;
 
