@@ -353,7 +353,7 @@ class USPEventListener:
         severity = meta.get("severity", "info")
 
         # Determine boot detection
-        if sub_id == "sub-device-boot" or "Boot" in path:
+        if sub_id == "sub-device-boot" or (path and "Boot" in path):
             title = "Device Rebooted"
             severity = "warning"
 
