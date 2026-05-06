@@ -35,6 +35,7 @@ import usp_msg_1_2_pb2 as usp_msg
 import usp_record_1_2_pb2 as usp_record
 
 logger = logging.getLogger(__name__)
+CONTROLLER_RESOLVE_TIMEOUT_SECONDS = 2
 
 # ---------------------------------------------------------------------------
 # Subscription definitions
@@ -112,6 +113,7 @@ class USPEventListener:
         self._msg_counter = 0
         self._controller_instance_path: str = None
         self._pending_controller_resolve = False
+        self._controller_resolve_done = threading.Event()
 
     # ------------------------------------------------------------------
     # Public API
@@ -189,7 +191,11 @@ class USPEventListener:
     def _delayed_subscribe(self):
         time.sleep(2)
         self._resolve_controller_path()
-        time.sleep(2)
+        self._controller_resolve_done.wait(timeout=CONTROLLER_RESOLVE_TIMEOUT_SECONDS)
+        with self._lock:
+            if not self._controller_instance_path:
+                self._controller_instance_path = "Device.LocalAgent.Controller."
+                self._log("USPEventListener controller resolution timed out; using fallback table path")
         self.create_subscriptions()
 
     def _on_disconnect(self, client, userdata, flags, rc, properties=None):
@@ -259,7 +265,7 @@ class USPEventListener:
         msg_id = self._gen_msg_id()
         from_id = self.config.get('from_id', 'self::usp-controller')
         with self._lock:
-            recipient = self._controller_instance_path or "Device.LocalAgent.Controller."
+            recipient = self._controller_instance_path or from_id
 
         out_msg = usp_msg.Msg()
         out_msg.header.msg_id = msg_id
@@ -275,7 +281,7 @@ class USPEventListener:
             ("ID",         sub_id,      True),
             ("NotifType",  notif_type,  True),
             ("ReferenceList", ref_path, True),
-            ("Recipient",  recipient or from_id, True),
+            ("Recipient",  recipient, True),
         ]:
             ps = create_obj.param_settings.add()
             ps.param = param
@@ -359,9 +365,22 @@ class USPEventListener:
             for req_result in get_resp.req_path_results:
                 for resolved in req_result.resolved_path_results:
                     path = resolved.resolved_path
-                    params = dict(resolved.result_params)
+                    params = {}
+                    result_params = resolved.result_params
+                    # protobuf map fields expose .items(); repeated map-entry
+                    # fields require key/value iteration.
+                    if hasattr(result_params, "items"):
+                        params.update(result_params.items())
+                    else:
+                        for param in result_params:
+                            key = getattr(param, "key", "")
+                            value = getattr(param, "value", "")
+                            if key:
+                                params[key] = value
                     endpoint_id = params.get("EndpointID", "")
                     if not endpoint_id:
+                        # Some agents may return fully-qualified names such as
+                        # Device.LocalAgent.Controller.1.EndpointID.
                         for key, value in params.items():
                             if key.endswith(".EndpointID"):
                                 endpoint_id = value
@@ -370,11 +389,16 @@ class USPEventListener:
                         with self._lock:
                             self._controller_instance_path = path
                         self._log(f"USPEventListener resolved controller path: {path}")
+                        self._controller_resolve_done.set()
                         return
 
             self._log("USPEventListener controller instance not found in GET_RESP, using fallback table path")
+            with self._lock:
+                self._controller_instance_path = "Device.LocalAgent.Controller."
+            self._controller_resolve_done.set()
         except Exception as exc:
             self._log(f"USPEventListener _handle_get_resp error: {exc}")
+            self._controller_resolve_done.set()
 
     def _handle_error(self, in_usp: usp_msg.Msg):
         msg_id = in_usp.header.msg_id
@@ -406,13 +430,15 @@ class USPEventListener:
             get_msg = usp_msg.Get()
             get_msg.param_paths.append("Device.LocalAgent.Controller.")
             out_msg.body.request.get.CopyFrom(get_msg)
+            self._controller_resolve_done.clear()
             with self._lock:
                 self._pending_controller_resolve = True
-                self._controller_instance_path = "Device.LocalAgent.Controller."
+                self._controller_instance_path = None
             self._publish_record(out_msg)
             self._log("USPEventListener sent GET for Device.LocalAgent.Controller.")
         except Exception as exc:
             self._log(f"USPEventListener _resolve_controller_path error: {exc}")
+            self._controller_resolve_done.set()
 
     # ------------------------------------------------------------------
     # NOTIFY handler and dispatcher
