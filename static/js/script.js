@@ -473,8 +473,10 @@ function toggleNode(toggleEl) {
 function restoreExpandedNodes() {
     try {
         const expanded = JSON.parse(localStorage.getItem('usp_expanded_nodes') || '[]');
+        // Use dataset comparison to avoid CSS selector injection from stored paths
+        const objectNodes = Array.from(document.querySelectorAll('.tree-node.object'));
         expanded.forEach(path => {
-            const node = document.querySelector(`.tree-node.object[data-path="${path}"]`);
+            const node = objectNodes.find(n => n.dataset.path === path);
             if (node) {
                 const childrenEl = node.nextElementSibling;
                 const toggle = node.querySelector('.node-toggle');
@@ -516,10 +518,6 @@ function highlightText(element, query) {
     element.appendChild(before);
     element.appendChild(highlight);
     element.appendChild(after);
-}
-
-function escapeHtml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function updateResultCount(count, cleared) {

@@ -1829,8 +1829,8 @@ def render_data_model(data_model, prefix="", level=0):
                 js_path = _js_str(path)
                 attr_path = html_escape(path)
 
-                html += f'<div class="tree-node parameter" data-path="{attr_path}" data-access="{access}" onclick="selectParameter(\'{js_path}\')" title="Click to select this parameter">'
-                html += f'<span class="access-icon" title="{access}">{access_icon}</span>'
+                html += f'<div class="tree-node parameter" data-path="{attr_path}" data-access="{html_escape(access)}" onclick="selectParameter(\'{js_path}\')" title="Click to select this parameter">'
+                html += f'<span class="access-icon" title="{html_escape(access)}">{access_icon}</span>'
                 html += f'<span class="param-name">{html_escape(key)}</span>'
                 html += f'<span class="param-value" id="val-{safe_id}">{param_value}</span>'
                 html += f'<span class="param-type-badge {type_class}">{param_type}</span>'
