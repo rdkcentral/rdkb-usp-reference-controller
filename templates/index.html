@@ -268,6 +268,74 @@
         50%  { box-shadow: 0 0 0 6px rgba(255,109,0,0.4); }
         100% { box-shadow: 0 0 0 0 rgba(255,109,0,0); }
     }
+
+    /* IoT Panel styles */
+    .iot-status-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding: 10px 14px;
+        background: rgba(76,175,80,0.08);
+        border-radius: 8px;
+        border: 1px solid rgba(76,175,80,0.2);
+    }
+    .iot-filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+    .iot-forms-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 16px;
+    }
+    @container (max-width: 700px) {
+        .iot-forms-row { grid-template-columns: 1fr; }
+    }
+    .iot-form-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px;
+        padding: 14px 16px;
+    }
+    .iot-form-card h4 {
+        margin: 0 0 10px 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .iot-result-line {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #a5d6a7;
+        font-family: 'JetBrains Mono', monospace;
+        min-height: 1.4em;
+    }
+    .iot-last-result {
+        margin-top: 16px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        color: #e0e0e0;
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+    .iot-ison-badge {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        vertical-align: middle;
+    }
     </style>
 </head>
 <body>
@@ -902,6 +970,118 @@
                     </div>
                 </div>
                 {% endif %}
+            </section>
+
+            <!-- ============================================================ -->
+            <!-- IoT Device Management Panel                                   -->
+            <!-- ============================================================ -->
+            <section class="panel full-width" id="iot-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-microchip"></i> IoT Device Management</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-success" onclick="iotRefreshStatus()">
+                            <i class="fas fa-sync"></i> Refresh Status
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="iotLoadDevices()">
+                            <i class="fas fa-list"></i> Reload Devices
+                        </button>
+                    </div>
+                </div>
+
+                <!-- A. Status Bar -->
+                <div class="iot-status-bar">
+                    <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">
+                        <i class="fas fa-circle-dot"></i> IoT Service Status:
+                    </span>
+                    <span id="iot-status-value" class="status-badge status-unknown">Loading…</span>
+                </div>
+
+                <!-- B. Device List -->
+                <div class="iot-filter-bar">
+                    <label style="font-size:13px;color:var(--text-secondary);">Filter by class:</label>
+                    <input type="text" id="iot-class-filter" class="form-control"
+                           style="width:160px;font-size:13px;" placeholder="e.g. light">
+                    <button class="btn btn-sm btn-primary" onclick="iotLoadDevices()">
+                        <i class="fas fa-filter"></i> Apply
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="document.getElementById('iot-class-filter').value='';iotLoadDevices()">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+
+                <table class="module-table">
+                    <thead>
+                        <tr>
+                            <th>UUID</th>
+                            <th>Device Class</th>
+                            <th>Version</th>
+                            <th>URI</th>
+                            <th>Driver</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="iot-devices-tbody">
+                        <tr>
+                            <td colspan="6" class="empty-state">
+                                <i class="fas fa-spinner fa-spin"></i> Loading IoT devices…
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- C & D. Resource and Metadata Forms -->
+                <div class="iot-forms-row">
+                    <!-- Resource Read -->
+                    <div class="iot-form-card">
+                        <h4><i class="fas fa-book-open"></i> Resource Read</h4>
+                        <div class="form-group">
+                            <label>Resource URI</label>
+                            <input type="text" id="iot-read-uri" class="form-control"
+                                   list="iot-uri-suggestions" placeholder="/uuid/ep/1/r/isOn">
+                            <datalist id="iot-uri-suggestions"></datalist>
+                        </div>
+                        <button class="btn btn-sm btn-info" onclick="iotReadResource()">
+                            <i class="fas fa-download"></i> Read
+                        </button>
+                        <div class="iot-result-line" id="iot-read-result"></div>
+                    </div>
+
+                    <!-- Resource Write -->
+                    <div class="iot-form-card">
+                        <h4><i class="fas fa-pencil-alt"></i> Resource Write</h4>
+                        <div class="form-group">
+                            <label>Resource URI</label>
+                            <input type="text" id="iot-write-uri" class="form-control"
+                                   list="iot-uri-suggestions" placeholder="/uuid/ep/1/r/isOn">
+                        </div>
+                        <div class="form-group">
+                            <label>Value</label>
+                            <input type="text" id="iot-write-value" class="form-control"
+                                   placeholder="true / false / …">
+                        </div>
+                        <button class="btn btn-sm btn-warning" onclick="iotWriteResource()">
+                            <i class="fas fa-upload"></i> Write
+                        </button>
+                        <div class="iot-result-line" id="iot-write-result"></div>
+                    </div>
+
+                    <!-- Metadata Read -->
+                    <div class="iot-form-card">
+                        <h4><i class="fas fa-tags"></i> Metadata Read</h4>
+                        <div class="form-group">
+                            <label>Metadata URI</label>
+                            <input type="text" id="iot-meta-uri" class="form-control"
+                                   list="iot-uri-suggestions" placeholder="/uuid">
+                        </div>
+                        <button class="btn btn-sm btn-info" onclick="iotReadMetadata()">
+                            <i class="fas fa-info-circle"></i> Read
+                        </button>
+                        <div class="iot-result-line" id="iot-meta-result"></div>
+                    </div>
+                </div>
+
+                <!-- E. Last Operation Result -->
+                <pre class="iot-last-result" id="iot-last-result">— no operation yet —</pre>
             </section>
 
             <!-- ============================================================ -->
@@ -1691,6 +1871,167 @@
         });
 
     })();
+    </script>
+
+    <script>
+    // ─── IoT Management ────────────────────────────────────────────────────────
+    async function iotRefreshStatus() {
+        const el = document.getElementById('iot-status-value');
+        if (el) el.textContent = 'Loading…';
+        try {
+            const r = await fetch('/api/iot/status');
+            const d = await r.json();
+            if (el) {
+                el.textContent = d.success ? d.status : ('Error: ' + (d.error || 'unknown'));
+                el.className = 'status-badge ' + (d.status === 'running' ? 'status-active' : 'status-unknown');
+            }
+        } catch(e) { if (el) el.textContent = 'Error'; }
+    }
+
+    async function iotLoadDevices() {
+        const filter = document.getElementById('iot-class-filter')?.value.trim() || '';
+        const tbody = document.getElementById('iot-devices-tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>';
+        try {
+            const url = '/api/iot/devices' + (filter ? '?device_class=' + encodeURIComponent(filter) : '');
+            const r = await fetch(url);
+            const d = await r.json();
+            if (!d.success || !d.devices || d.devices.length === 0) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-inbox"></i> No IoT devices found</td></tr>';
+                return;
+            }
+            if (tbody) {
+                tbody.innerHTML = d.devices.map(dev => `
+                    <tr class="module-row" id="iot-row-${dev.uuid}">
+                        <td class="name-cell" title="${dev.uuid}"><code>${dev.uuid.substring(0,12)}…</code></td>
+                        <td><span class="cat-badge iot">${dev.deviceClass || 'unknown'}</span></td>
+                        <td>${dev.classVersion || ''}</td>
+                        <td><code>${dev.uri || ''}</code></td>
+                        <td>${dev.driver || ''}</td>
+                        <td class="actions-cell">
+                            <div class="action-group">
+                                <button class="btn btn-sm btn-info" onclick="iotReadIsOn('${dev.uuid}','${dev.uri}')" title="Read isOn">💡</button>
+                                <button class="btn btn-sm btn-warning" onclick="iotToggleIsOn('${dev.uuid}','${dev.uri}')" title="Toggle isOn">🔄</button>
+                                <button class="btn btn-sm btn-primary" onclick="iotDeviceDetails('${dev.uuid}')" title="Details">🔍</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr id="iot-detail-row-${dev.uuid}" style="display:none;">
+                        <td colspan="6">
+                            <div class="evt-detail" style="display:block;" id="iot-detail-${dev.uuid}"></div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            // Update datalist for resource URI suggestions
+            const dl = document.getElementById('iot-uri-suggestions');
+            if (dl) {
+                dl.innerHTML = d.devices.flatMap(dev => [
+                    `<option value="${dev.uri}/ep/1/r/isOn">`,
+                    `<option value="${dev.uri}/r/manufacturer">`,
+                    `<option value="${dev.uri}">`,
+                ]).join('');
+            }
+        } catch(e) {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Error: ${e}</td></tr>`;
+        }
+    }
+
+    async function iotReadIsOn(uuid, uri) {
+        const resourceUri = uri + '/ep/1/r/isOn';
+        const r = await fetch('/api/iot/resource/read?uri=' + encodeURIComponent(resourceUri));
+        const d = await r.json();
+        iotShowResult(d);
+        const row = document.getElementById('iot-row-' + uuid);
+        if (row) {
+            const existing = row.querySelector('.iot-ison-badge');
+            if (existing) existing.remove();
+            const badge = document.createElement('span');
+            badge.className = 'iot-ison-badge status-badge ' + (d.value === 'true' ? 'status-active' : 'status-stopped');
+            badge.textContent = 'isOn: ' + (d.success ? d.value : 'err');
+            badge.style.marginLeft = '8px';
+            const nameCell = row.querySelector('.name-cell');
+            if (nameCell) nameCell.appendChild(badge);
+        }
+    }
+
+    async function iotToggleIsOn(uuid, uri) {
+        const resourceUri = uri + '/ep/1/r/isOn';
+        const rr = await fetch('/api/iot/resource/read?uri=' + encodeURIComponent(resourceUri));
+        const rd = await rr.json();
+        const currentVal = rd.success ? rd.value : 'false';
+        const newVal = (currentVal === 'true') ? 'false' : 'true';
+        const wr = await fetch('/api/iot/resource/write', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({uri: resourceUri, value: newVal})
+        });
+        const wd = await wr.json();
+        iotShowResult({...wd, toggled_to: newVal});
+        setTimeout(() => iotReadIsOn(uuid, uri), 500);
+    }
+
+    async function iotDeviceDetails(uuid) {
+        const detailRow = document.getElementById('iot-detail-row-' + uuid);
+        const detailEl = document.getElementById('iot-detail-' + uuid);
+        if (!detailRow || !detailEl) return;
+        if (detailRow.style.display !== 'none') {
+            detailRow.style.display = 'none';
+            return;
+        }
+        detailEl.textContent = 'Loading…';
+        detailRow.style.display = '';
+        try {
+            const r = await fetch('/api/iot/device/' + uuid);
+            const d = await r.json();
+            detailEl.textContent = JSON.stringify(d, null, 2);
+        } catch(e) { detailEl.textContent = 'Error: ' + e; }
+    }
+
+    async function iotReadResource() {
+        const uri = document.getElementById('iot-read-uri')?.value.trim();
+        if (!uri) { alert('Please enter a URI'); return; }
+        const r = await fetch('/api/iot/resource/read?uri=' + encodeURIComponent(uri));
+        const d = await r.json();
+        iotShowResult(d);
+        const el = document.getElementById('iot-read-result');
+        if (el) el.textContent = d.success ? ('Value: ' + d.value) : ('Error: ' + d.error);
+    }
+
+    async function iotWriteResource() {
+        const uri = document.getElementById('iot-write-uri')?.value.trim();
+        const value = document.getElementById('iot-write-value')?.value.trim();
+        if (!uri) { alert('Please enter a URI'); return; }
+        const r = await fetch('/api/iot/resource/write', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({uri, value})
+        });
+        const d = await r.json();
+        iotShowResult(d);
+        const el = document.getElementById('iot-write-result');
+        if (el) el.textContent = d.success ? ('Status: ' + d.status) : ('Error: ' + d.error);
+    }
+
+    async function iotReadMetadata() {
+        const uri = document.getElementById('iot-meta-uri')?.value.trim();
+        if (!uri) { alert('Please enter a URI'); return; }
+        const r = await fetch('/api/iot/metadata/read?uri=' + encodeURIComponent(uri));
+        const d = await r.json();
+        iotShowResult(d);
+        const el = document.getElementById('iot-meta-result');
+        if (el) el.textContent = d.success ? ('Value: ' + d.value) : ('Error: ' + d.error);
+    }
+
+    function iotShowResult(data) {
+        const el = document.getElementById('iot-last-result');
+        if (el) el.textContent = JSON.stringify(data, null, 2);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        iotRefreshStatus();
+        iotLoadDevices();
+    });
     </script>
 </body>
 </html>
