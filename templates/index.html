@@ -1918,6 +1918,9 @@
                     const ver     = iotEscHtml(String(dev.classVersion || ''));
                     const uri     = iotEscHtml(dev.uri || '');
                     const driver  = iotEscHtml(dev.driver || '');
+                    // JSON.stringify produces JS-safe quoted strings for onclick attributes
+                    const uuidJs  = JSON.stringify(dev.uuid || '');
+                    const uriJs   = JSON.stringify(dev.uri || '');
                     return `
                     <tr class="module-row" id="iot-row-${uuid}">
                         <td class="name-cell" title="${uuid}"><code>${uuidTr}…</code></td>
@@ -1927,9 +1930,9 @@
                         <td>${driver}</td>
                         <td class="actions-cell">
                             <div class="action-group">
-                                <button class="btn btn-sm btn-info" onclick="iotReadIsOn('${uuid}','${uri}')" title="Read isOn">💡</button>
-                                <button class="btn btn-sm btn-warning" onclick="iotToggleIsOn('${uuid}','${uri}')" title="Toggle isOn">🔄</button>
-                                <button class="btn btn-sm btn-primary" onclick="iotDeviceDetails('${uuid}')" title="Details">🔍</button>
+                                <button class="btn btn-sm btn-info" onclick="iotReadIsOn(${uuidJs},${uriJs})" title="Read isOn">💡</button>
+                                <button class="btn btn-sm btn-warning" onclick="iotToggleIsOn(${uuidJs},${uriJs})" title="Toggle isOn">🔄</button>
+                                <button class="btn btn-sm btn-primary" onclick="iotDeviceDetails(${uuidJs})" title="Details">🔍</button>
                             </div>
                         </td>
                     </tr>
