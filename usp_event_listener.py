@@ -50,6 +50,11 @@ SUBSCRIPTIONS = [
     {"id": "sub-host-join",          "type": "ObjectCreation", "path": "Device.Hosts.Host.",              "category": "iot"},
     {"id": "sub-host-leave",         "type": "ObjectDeletion", "path": "Device.Hosts.Host.",              "category": "iot"},
     {"id": "sub-host-count",         "type": "ValueChange",    "path": "Device.Hosts.HostNumberOfEntries","category": "iot"},
+    # IoT Devices (Device.IoT.)
+    {"id": "sub-iot-status",         "type": "ValueChange",    "path": "Device.IoT.Status",               "category": "iot", "required": False},
+    {"id": "sub-iot-device-count",   "type": "ValueChange",    "path": "Device.IoT.DeviceNumberOfEntries","category": "iot", "required": False},
+    {"id": "sub-iot-device-add",     "type": "ObjectCreation", "path": "Device.IoT.",                     "category": "iot", "required": False},
+    {"id": "sub-iot-device-del",     "type": "ObjectDeletion", "path": "Device.IoT.",                     "category": "iot", "required": False},
     # DAC / Software Modules
     {"id": "sub-du-install",         "type": "OperationComplete", "path": "Device.SoftwareModules.",      "category": "dac"},
     {"id": "sub-du-creation",        "type": "ObjectCreation", "path": "Device.SoftwareModules.DeploymentUnit.", "category": "dac"},
@@ -73,6 +78,10 @@ _NOTIF_META = {
     "sub-host-join":          {"title": "New Host Connected",               "severity": "success"},
     "sub-host-leave":         {"title": "Host Disconnected",                "severity": "warning"},
     "sub-host-count":         {"title": "Host Count Changed",               "severity": "info"},
+    "sub-iot-status":         {"title": "IoT Service Status Changed",       "severity": "info"},
+    "sub-iot-device-count":   {"title": "IoT Device Count Changed",         "severity": "info"},
+    "sub-iot-device-add":     {"title": "IoT Device Paired",                "severity": "success"},
+    "sub-iot-device-del":     {"title": "IoT Device Removed",               "severity": "warning"},
     "sub-du-install":         {"title": "Software Module Operation",        "severity": "info"},
     "sub-du-creation":        {"title": "Deployment Unit Created",          "severity": "success"},
     "sub-du-deletion":        {"title": "Deployment Unit Deleted",          "severity": "warning"},
@@ -276,17 +285,16 @@ class USPEventListener:
         create_obj = add_msg.create_objs.add()
         create_obj.obj_path = "Device.LocalAgent.Subscription."
 
-        for param, value, required in [
+        for param, value, required_flag in [
             ("Enable",     "true",      True),
             ("ID",         sub_id,      True),
             ("NotifType",  notif_type,  True),
             ("ReferenceList", ref_path, True),
-            ("Recipient",  recipient, True),
         ]:
             ps = create_obj.param_settings.add()
             ps.param = param
             ps.value = value
-            ps.required = required
+            ps.required = required_flag
 
         out_msg.body.request.add.CopyFrom(add_msg)
 
@@ -651,6 +659,8 @@ class USPEventListener:
         if "wifi" in path_lower:
             category = "wifi"
         elif "hosts" in path_lower or "host." in path_lower:
+            category = "iot"
+        elif "iot" in path_lower or "device.iot" in path_lower:
             category = "iot"
         elif "softwaremodules" in path_lower:
             category = "dac"
