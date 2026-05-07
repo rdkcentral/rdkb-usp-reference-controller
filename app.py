@@ -1826,6 +1826,14 @@ class USPController:
 
     # ── IoT Device Management ──────────────────────────────────────────────────
 
+    _IOT_SAFE_CLASS_RE = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
+    _IOT_SAFE_ID_RE    = re.compile(r'^[0-9A-Fa-f]{1,64}$')
+    _IOT_SAFE_URI_RE   = re.compile(r'^[A-Za-z0-9/\-_.]{1,256}$')
+
+    def _validate_iot_input(self, value: str, pattern) -> bool:
+        """Return True if value matches the allowed pattern."""
+        return bool(pattern.match(value)) if value else False
+
     def _parse_operate_output_args(self, result) -> Dict[str, Any]:
         """Parse output args from an operate response (handles multiple response shapes)."""
         if not result or not isinstance(result, dict):
@@ -1860,12 +1868,15 @@ class USPController:
                 return {"success": True, "status": status}
             return {"success": False, "error": "No response"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            self.log(f"iot_get_status error: {e}")
+            return {"success": False, "error": "IoT status request failed"}
 
     def iot_list_devices(self, device_class: str = "") -> Dict[str, Any]:
         """List IoT devices, optionally filtered by class"""
         try:
             if device_class:
+                if not self._validate_iot_input(device_class, self._IOT_SAFE_CLASS_RE):
+                    return {"success": False, "devices": [], "error": "Invalid device_class value"}
                 cmd = f"Device.IoT.Device.List(DeviceClass={device_class})"
             else:
                 cmd = "Device.IoT.Device.List()"
@@ -1889,11 +1900,14 @@ class USPController:
                 return {"success": True, "devices": devices}
             return {"success": False, "devices": [], "error": "No response"}
         except Exception as e:
-            return {"success": False, "devices": [], "error": str(e)}
+            self.log(f"iot_list_devices error: {e}")
+            return {"success": False, "devices": [], "error": "IoT device list request failed"}
 
     def iot_get_device(self, device_id: str) -> Dict[str, Any]:
         """Get a single IoT device by UUID"""
         try:
+            if not self._validate_iot_input(device_id, self._IOT_SAFE_ID_RE):
+                return {"success": False, "error": "Invalid device_id value"}
             result = self.usp_pa("operate", f"Device.IoT.Device.Get(DeviceId={device_id})")
             if result:
                 output_args = self._parse_operate_output_args(result)
@@ -1905,11 +1919,14 @@ class USPController:
                 return {"success": True, "device": device}
             return {"success": False, "error": "No response"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            self.log(f"iot_get_device error: {e}")
+            return {"success": False, "error": "IoT device request failed"}
 
     def iot_resource_read(self, uri: str) -> Dict[str, Any]:
         """Read an IoT resource value"""
         try:
+            if not self._validate_iot_input(uri, self._IOT_SAFE_URI_RE):
+                return {"success": False, "error": "Invalid uri value", "uri": uri}
             result = self.usp_pa("operate", f"Device.IoT.Resource.Read(Uri={uri})")
             if result:
                 output_args = self._parse_operate_output_args(result)
@@ -1917,11 +1934,16 @@ class USPController:
                 return {"success": True, "value": value, "uri": uri}
             return {"success": False, "error": "No response", "uri": uri}
         except Exception as e:
-            return {"success": False, "error": str(e), "uri": uri}
+            self.log(f"iot_resource_read error: {e}")
+            return {"success": False, "error": "IoT resource read failed", "uri": uri}
 
     def iot_resource_write(self, uri: str, value: str) -> Dict[str, Any]:
         """Write an IoT resource value"""
         try:
+            if not self._validate_iot_input(uri, self._IOT_SAFE_URI_RE):
+                return {"success": False, "error": "Invalid uri value", "uri": uri}
+            if not value or len(value) > 256:
+                return {"success": False, "error": "Invalid value", "uri": uri}
             result = self.usp_pa("operate", f"Device.IoT.Resource.Write(Uri={uri},Value={value})")
             if result:
                 output_args = self._parse_operate_output_args(result)
@@ -1929,11 +1951,14 @@ class USPController:
                 return {"success": True, "status": status, "uri": uri, "value": value}
             return {"success": False, "error": "No response", "uri": uri}
         except Exception as e:
-            return {"success": False, "error": str(e), "uri": uri}
+            self.log(f"iot_resource_write error: {e}")
+            return {"success": False, "error": "IoT resource write failed", "uri": uri}
 
     def iot_metadata_read(self, uri: str) -> Dict[str, Any]:
         """Read IoT device metadata"""
         try:
+            if not self._validate_iot_input(uri, self._IOT_SAFE_URI_RE):
+                return {"success": False, "error": "Invalid uri value", "uri": uri}
             result = self.usp_pa("operate", f"Device.IoT.Metadata.Read(Uri={uri})")
             if result:
                 output_args = self._parse_operate_output_args(result)
@@ -1941,7 +1966,8 @@ class USPController:
                 return {"success": True, "value": value, "uri": uri}
             return {"success": False, "error": "No response", "uri": uri}
         except Exception as e:
-            return {"success": False, "error": str(e), "uri": uri}
+            self.log(f"iot_metadata_read error: {e}")
+            return {"success": False, "error": "IoT metadata read failed", "uri": uri}
 
     def log(self, message: str):
         """Add log message"""

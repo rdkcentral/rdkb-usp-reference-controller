@@ -1875,6 +1875,16 @@
 
     <script>
     // ─── IoT Management ────────────────────────────────────────────────────────
+    function iotEscHtml(s) {
+        if (s === null || s === undefined) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     async function iotRefreshStatus() {
         const el = document.getElementById('iot-status-value');
         if (el) el.textContent = 'Loading…';
@@ -1901,39 +1911,52 @@
                 return;
             }
             if (tbody) {
-                tbody.innerHTML = d.devices.map(dev => `
-                    <tr class="module-row" id="iot-row-${dev.uuid}">
-                        <td class="name-cell" title="${dev.uuid}"><code>${dev.uuid.substring(0,12)}…</code></td>
-                        <td><span class="cat-badge iot">${dev.deviceClass || 'unknown'}</span></td>
-                        <td>${dev.classVersion || ''}</td>
-                        <td><code>${dev.uri || ''}</code></td>
-                        <td>${dev.driver || ''}</td>
+                tbody.innerHTML = d.devices.map(dev => {
+                    const uuid    = iotEscHtml(dev.uuid || '');
+                    const uuidTr  = iotEscHtml((dev.uuid || '').substring(0, 12));
+                    const cls     = iotEscHtml(dev.deviceClass || 'unknown');
+                    const ver     = iotEscHtml(String(dev.classVersion || ''));
+                    const uri     = iotEscHtml(dev.uri || '');
+                    const driver  = iotEscHtml(dev.driver || '');
+                    return `
+                    <tr class="module-row" id="iot-row-${uuid}">
+                        <td class="name-cell" title="${uuid}"><code>${uuidTr}…</code></td>
+                        <td><span class="cat-badge iot">${cls}</span></td>
+                        <td>${ver}</td>
+                        <td><code>${uri}</code></td>
+                        <td>${driver}</td>
                         <td class="actions-cell">
                             <div class="action-group">
-                                <button class="btn btn-sm btn-info" onclick="iotReadIsOn('${dev.uuid}','${dev.uri}')" title="Read isOn">💡</button>
-                                <button class="btn btn-sm btn-warning" onclick="iotToggleIsOn('${dev.uuid}','${dev.uri}')" title="Toggle isOn">🔄</button>
-                                <button class="btn btn-sm btn-primary" onclick="iotDeviceDetails('${dev.uuid}')" title="Details">🔍</button>
+                                <button class="btn btn-sm btn-info" onclick="iotReadIsOn('${uuid}','${uri}')" title="Read isOn">💡</button>
+                                <button class="btn btn-sm btn-warning" onclick="iotToggleIsOn('${uuid}','${uri}')" title="Toggle isOn">🔄</button>
+                                <button class="btn btn-sm btn-primary" onclick="iotDeviceDetails('${uuid}')" title="Details">🔍</button>
                             </div>
                         </td>
                     </tr>
-                    <tr id="iot-detail-row-${dev.uuid}" style="display:none;">
+                    <tr id="iot-detail-row-${uuid}" style="display:none;">
                         <td colspan="6">
-                            <div class="evt-detail" style="display:block;" id="iot-detail-${dev.uuid}"></div>
+                            <div class="evt-detail" style="display:block;" id="iot-detail-${uuid}"></div>
                         </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
             }
             // Update datalist for resource URI suggestions
             const dl = document.getElementById('iot-uri-suggestions');
             if (dl) {
                 dl.innerHTML = d.devices.flatMap(dev => [
-                    `<option value="${dev.uri}/ep/1/r/isOn">`,
-                    `<option value="${dev.uri}/r/manufacturer">`,
-                    `<option value="${dev.uri}">`,
+                    `<option value="${iotEscHtml(dev.uri)}/ep/1/r/isOn">`,
+                    `<option value="${iotEscHtml(dev.uri)}/r/manufacturer">`,
+                    `<option value="${iotEscHtml(dev.uri)}">`,
                 ]).join('');
             }
         } catch(e) {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Error: ${e}</td></tr>`;
+            if (tbody) {
+                const msgEl = document.createElement('tr');
+                msgEl.innerHTML = '<td colspan="6" class="empty-state"></td>';
+                msgEl.querySelector('td').textContent = 'Error: ' + e;
+                tbody.replaceChildren(msgEl);
+            }
         }
     }
 
