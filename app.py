@@ -196,7 +196,8 @@ class USPController:
                 self.log(f"USP Raw output length: {len(output)} chars")
             
             try:
-                json_output = json.loads(output)
+                decoder = json.JSONDecoder()
+                json_output, _ = decoder.raw_decode(output.strip())
                 if not quiet:
                     self.log(f"JSON parsed successfully, keys: {list(json_output.keys())}")
             except json.JSONDecodeError as e:
@@ -243,7 +244,8 @@ class USPController:
                 self.log(f"USP Raw output length: {len(output)} chars")
             
             try:
-                json_output = json.loads(output)
+                decoder = json.JSONDecoder()
+                json_output, _ = decoder.raw_decode(output.strip())
                 if not quiet:
                     self.log(f"JSON parsed successfully, keys: {list(json_output.keys())}")
             except json.JSONDecodeError as e:
@@ -1838,19 +1840,24 @@ class USPController:
         """Parse output args from an operate response (handles multiple response shapes)."""
         if not result or not isinstance(result, dict):
             return {}
-        # Try operateResp[0].outputArgs
+        # Primary: operationResults[0].reqOutputArgs.outputArgs  (actual device response)
         try:
-            return result["operateResp"][0].get("outputArgs", {})
+            return result["operationResults"][0]["reqOutputArgs"].get("outputArgs", {})
         except (KeyError, IndexError, TypeError):
             pass
-        # Try direct outputArgs
-        if "outputArgs" in result:
-            return result["outputArgs"]
-        # Try operationResults
+        # Secondary: operationResults[0].outputArgs
         try:
             return result["operationResults"][0].get("outputArgs", {})
         except (KeyError, IndexError, TypeError):
             pass
+        # Tertiary: operateResp[0].outputArgs
+        try:
+            return result["operateResp"][0].get("outputArgs", {})
+        except (KeyError, IndexError, TypeError):
+            pass
+        # Last resort: direct outputArgs
+        if "outputArgs" in result:
+            return result["outputArgs"]
         return {}
 
     def iot_get_status(self) -> Dict[str, Any]:
