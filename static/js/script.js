@@ -63,6 +63,12 @@ function initializeApplication() {
     // Restore user preferences
     restoreUserPreferences();
     
+    // Restore expanded tree nodes from localStorage
+    restoreExpandedNodes();
+    
+    // Build category filter chips from the rendered tree
+    buildCategoryChips();
+    
     // Initialize search functionality
     initializeSearch();
     
@@ -419,54 +425,399 @@ function toggleModuleView() {
  */
 function expandAllNodes() {
     console.log('📂 Expanding all data model nodes...');
-    const nodes = document.querySelectorAll('.tree-node.object');
-    nodes.forEach(node => {
-        USPController.state.expandedNodes.add(node.dataset.path);
-        node.classList.add('expanded');
+    document.querySelectorAll('.node-children').forEach(el => {
+        el.style.display = '';
+    });
+    document.querySelectorAll('.node-toggle').forEach(el => {
+        el.textContent = '▼';
     });
     showNotification('All nodes expanded', 'info');
 }
 
 function collapseAllNodes() {
     console.log('📁 Collapsing all data model nodes...');
-    const nodes = document.querySelectorAll('.tree-node.object');
-    nodes.forEach(node => {
-        USPController.state.expandedNodes.delete(node.dataset.path);
-        node.classList.remove('expanded');
+    document.querySelectorAll('.node-children').forEach(el => {
+        el.style.display = 'none';
+    });
+    document.querySelectorAll('.node-toggle').forEach(el => {
+        el.textContent = '▶';
     });
     showNotification('All nodes collapsed', 'info');
 }
 
-function searchDataModel() {
-    const searchTerm = prompt('Enter search term for data model:');
-    if (searchTerm) {
-        filterDataModel(searchTerm);
+function toggleNode(toggleEl) {
+    const objectNode = toggleEl.closest('.tree-node.object');
+    if (!objectNode) return;
+    const childrenEl = objectNode.nextElementSibling;
+    if (!childrenEl || !childrenEl.classList.contains('node-children')) return;
+
+    const isExpanded = childrenEl.style.display !== 'none';
+    childrenEl.style.display = isExpanded ? 'none' : '';
+    toggleEl.textContent = isExpanded ? '▶' : '▼';
+
+    const path = objectNode.dataset.path;
+    if (path) {
+        try {
+            const expanded = JSON.parse(localStorage.getItem('usp_expanded_nodes') || '[]');
+            if (isExpanded) {
+                const idx = expanded.indexOf(path);
+                if (idx > -1) expanded.splice(idx, 1);
+            } else {
+                if (!expanded.includes(path)) expanded.push(path);
+            }
+            localStorage.setItem('usp_expanded_nodes', JSON.stringify(expanded));
+        } catch (e) { /* ignore localStorage errors */ }
     }
 }
 
-function filterDataModel(searchTerm) {
+function restoreExpandedNodes() {
+    try {
+        const expanded = JSON.parse(localStorage.getItem('usp_expanded_nodes') || '[]');
+        // Use dataset comparison to avoid CSS selector injection from stored paths
+        const objectNodes = Array.from(document.querySelectorAll('.tree-node.object'));
+        expanded.forEach(path => {
+            const node = objectNodes.find(n => n.dataset.path === path);
+            if (node) {
+                const childrenEl = node.nextElementSibling;
+                const toggle = node.querySelector('.node-toggle');
+                if (childrenEl && childrenEl.classList.contains('node-children')) {
+                    childrenEl.style.display = '';
+                    if (toggle) toggle.textContent = '▼';
+                }
+            }
+        });
+    } catch (e) { /* ignore */ }
+}
+
+function searchDataModel() {
+    const searchTerm = prompt('Enter search term for data model:');
+    if (searchTerm !== null) {
+        const input = document.getElementById('model-search');
+        if (input) {
+            input.value = searchTerm;
+            filterDataModel(searchTerm.trim());
+        }
+    }
+}
+
+function highlightText(element, query) {
+    const text = element.textContent;
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const index = lowerText.indexOf(lowerQuery);
+    if (index === -1) return;
+
+    // Build highlight using DOM nodes (avoids innerHTML injection risk)
+    const before = document.createTextNode(text.substring(0, index));
+    const highlight = document.createElement('span');
+    highlight.className = 'highlight';
+    highlight.textContent = text.substring(index, index + query.length);
+    const after = document.createTextNode(text.substring(index + query.length));
+
+    element.textContent = '';
+    element.appendChild(before);
+    element.appendChild(highlight);
+    element.appendChild(after);
+}
+
+function updateResultCount(count, cleared) {
+    const badge = document.getElementById('search-result-count');
+    if (!badge) return;
+    if (cleared) {
+        badge.textContent = '';
+        badge.style.display = 'none';
+    } else {
+        badge.textContent = `${count} result${count !== 1 ? 's' : ''}`;
+        badge.style.display = 'inline-block';
+    }
+}
+
+function filterDataModel(query) {
     const tree = document.getElementById('data-model-tree');
     if (!tree) return;
-    
-    const nodes = tree.querySelectorAll('.tree-node');
-    let visibleCount = 0;
-    
-    nodes.forEach(node => {
+
+    // Remove existing highlights and normalize adjacent text nodes
+    tree.querySelectorAll('.highlight').forEach(el => {
+        const parent = el.parentNode;
+        el.replaceWith(document.createTextNode(el.textContent));
+        if (parent) parent.normalize();
+    });
+
+    if (!query) {
+        tree.querySelectorAll('.tree-node').forEach(n => { n.style.display = ''; });
+        tree.querySelectorAll('.node-children').forEach(n => { n.style.display = 'none'; });
+        updateResultCount(0, true);
+        return;
+    }
+
+    const lowerQuery = query.toLowerCase();
+    let matchCount = 0;
+
+    // Hide everything first
+    tree.querySelectorAll('.tree-node').forEach(n => { n.style.display = 'none'; });
+    tree.querySelectorAll('.node-children').forEach(n => { n.style.display = 'none'; });
+
+    // Show matching parameter nodes and their ancestors
+    tree.querySelectorAll('.tree-node.parameter').forEach(node => {
+        const path = (node.dataset.path || '').toLowerCase();
         const text = node.textContent.toLowerCase();
-        const matches = !searchTerm || text.includes(searchTerm.toLowerCase());
-        
-        if (matches) {
+        if (path.includes(lowerQuery) || text.includes(lowerQuery)) {
             node.style.display = '';
-            visibleCount++;
-        } else {
-            node.style.display = 'none';
+            matchCount++;
+            // Highlight the param-name
+            const nameEl = node.querySelector('.param-name');
+            if (nameEl) highlightText(nameEl, query);
+            // Walk up and show all ancestor node-children + their sibling object nodes
+            let parent = node.parentElement;
+            while (parent && parent !== tree) {
+                if (parent.classList.contains('node-children')) {
+                    parent.style.display = '';
+                    const objNode = parent.previousElementSibling;
+                    if (objNode && objNode.classList.contains('tree-node')) {
+                        objNode.style.display = '';
+                    }
+                }
+                parent = parent.parentElement;
+            }
         }
     });
-    
-    console.log(`🔍 Search "${searchTerm}" found ${visibleCount} matches`);
-    
-    if (searchTerm && visibleCount === 0) {
-        showNotification('No matches found', 'warning');
+
+    updateResultCount(matchCount, false);
+    console.log(`🔍 Search "${query}" found ${matchCount} matches`);
+    if (matchCount === 0) showNotification('No matches found', 'warning');
+}
+
+function clearSearch() {
+    const input = document.getElementById('model-search');
+    if (input) {
+        input.value = '';
+        filterDataModel('');
+    }
+}
+
+/**
+ * Inline parameter refresh (live value fetch)
+ */
+async function refreshParam(path) {
+    const safeId = path.replace(/\./g, '-');
+    const valueEl = document.getElementById('val-' + safeId);
+    if (!valueEl) return;
+
+    valueEl.classList.add('loading');
+    valueEl.classList.remove('updated', 'error');
+
+    try {
+        const resp = await fetch(`/api/get_parameter_ajax?path=${encodeURIComponent(path)}`);
+        const data = await resp.json();
+        valueEl.classList.remove('loading');
+
+        if (data.success && data.data) {
+            const newValue = Object.values(data.data)[0];
+            valueEl.textContent = (newValue !== undefined && newValue !== null) ? newValue : 'N/A';
+            valueEl.classList.add('updated');
+            setTimeout(() => valueEl.classList.remove('updated'), 2000);
+        } else {
+            valueEl.classList.add('error');
+            setTimeout(() => valueEl.classList.remove('error'), 2000);
+            showNotification(`Refresh failed: ${data.error || 'No data'}`, 'warning');
+        }
+    } catch (e) {
+        valueEl.classList.remove('loading');
+        valueEl.classList.add('error');
+        setTimeout(() => valueEl.classList.remove('error'), 2000);
+        showNotification(`Refresh error: ${e.message}`, 'error');
+    }
+}
+
+/**
+ * Inline parameter edit
+ */
+/**
+ * Find a parameter tree node by its data-path value without CSS selector injection risk
+ */
+function findParamNode(path) {
+    return Array.from(document.querySelectorAll('.tree-node.parameter')).find(
+        n => n.dataset.path === path
+    ) || null;
+}
+
+function editParam(path) {
+    const safeId = path.replace(/\./g, '-');
+    const valueEl = document.getElementById('val-' + safeId);
+    if (!valueEl) return;
+    // Don't open a second editor
+    if (valueEl.parentElement.querySelector('.inline-edit-container')) return;
+
+    const currentValue = valueEl.textContent;
+    const editContainer = document.createElement('div');
+    editContainer.className = 'inline-edit-container';
+    // Escape backslashes first, then single quotes for JS string in onclick attribute
+    const escapedPath = path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    editContainer.innerHTML =
+        `<input type="text" class="inline-edit-input" value="">` +
+        `<button class="btn-save-param" onclick="saveParam('${escapedPath}', this.previousElementSibling.value)">✓</button>` +
+        `<button class="btn-cancel-param" onclick="cancelEdit('${escapedPath}')">✗</button>`;
+
+    valueEl.style.display = 'none';
+    valueEl.insertAdjacentElement('afterend', editContainer);
+    const input = editContainer.querySelector('.inline-edit-input');
+    input.value = currentValue;
+    input.focus();
+    input.select();
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') saveParam(path, this.value);
+        if (e.key === 'Escape') cancelEdit(path);
+    });
+}
+
+async function saveParam(path, newValue) {
+    const safeId = path.replace(/\./g, '-');
+    const valueEl = document.getElementById('val-' + safeId);
+    const paramNode = findParamNode(path);
+    const editContainer = paramNode ? paramNode.querySelector('.inline-edit-container') : null;
+
+    try {
+        const resp = await fetch('/api/set_parameter_ajax', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({path: path, value: newValue})
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            if (valueEl) {
+                valueEl.textContent = newValue;
+                valueEl.style.display = '';
+                valueEl.classList.add('updated');
+                setTimeout(() => valueEl.classList.remove('updated'), 2000);
+            }
+            if (editContainer) editContainer.remove();
+            showNotification(`Saved: ${path}`, 'success');
+        } else {
+            showNotification(`Failed to set ${path}: ${data.error || 'Unknown error'}`, 'error');
+            cancelEdit(path);
+        }
+    } catch (e) {
+        showNotification(`Error setting ${path}: ${e.message}`, 'error');
+        cancelEdit(path);
+    }
+}
+
+function cancelEdit(path) {
+    const safeId = path.replace(/\./g, '-');
+    const valueEl = document.getElementById('val-' + safeId);
+    const paramNode = findParamNode(path);
+    const editContainer = paramNode ? paramNode.querySelector('.inline-edit-container') : null;
+    if (valueEl) valueEl.style.display = '';
+    if (editContainer) editContainer.remove();
+}
+
+/**
+ * Copy path to clipboard
+ */
+function copyPath(path) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(path).then(() => {
+            showNotification(`Copied: ${path}`, 'success');
+        }).catch(() => fallbackCopy(path));
+    } else {
+        fallbackCopy(path);
+    }
+}
+
+function fallbackCopy(path) {
+    const ta = document.createElement('textarea');
+    ta.value = path;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); showNotification(`Copied: ${path}`, 'success'); }
+    catch (e) { showNotification('Copy failed', 'error'); }
+    document.body.removeChild(ta);
+}
+
+/**
+ * Lazy-load a large model sub-tree
+ */
+async function expandLargeModel(path, el) {
+    el.innerHTML = '⟳ Loading...';
+    el.style.cursor = 'wait';
+
+    try {
+        const resp = await fetch(`/api/expand_model?path=${encodeURIComponent(path)}`);
+        const data = await resp.json();
+
+        if (data.success && data.html) {
+            const container = el.parentElement;
+            el.remove();
+            container.insertAdjacentHTML('beforeend', data.html);
+        } else {
+            el.innerHTML = `❌ Failed to load: ${data.error || 'Unknown error'}`;
+            el.style.cursor = 'pointer';
+        }
+    } catch (e) {
+        el.innerHTML = `❌ Error: ${e.message}`;
+        el.style.cursor = 'pointer';
+    }
+}
+
+/**
+ * Category/namespace filter
+ */
+function buildCategoryChips() {
+    const tree = document.getElementById('data-model-tree');
+    const chipsContainer = document.getElementById('category-chips');
+    if (!tree || !chipsContainer) return;
+
+    const categories = new Set(['All']);
+    tree.querySelectorAll('.tree-node.object[data-category]').forEach(node => {
+        const cat = node.dataset.category;
+        if (cat) categories.add(cat);
+    });
+
+    chipsContainer.innerHTML = '';
+    categories.forEach(cat => {
+        const chip = document.createElement('button');
+        chip.className = 'category-chip' + (cat === 'All' ? ' active' : '');
+        chip.dataset.category = cat;
+        chip.textContent = cat;
+        chip.addEventListener('click', () => filterByCategory(cat));
+        chipsContainer.appendChild(chip);
+    });
+}
+
+function filterByCategory(category) {
+    document.querySelectorAll('.category-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.category === category);
+    });
+
+    const tree = document.getElementById('data-model-tree');
+    if (!tree) return;
+
+    // Only filter direct children (top-level object nodes)
+    let el = tree.firstElementChild;
+    while (el) {
+        const next = el.nextElementSibling;
+        if (el.classList.contains('tree-node') && el.classList.contains('object')) {
+            const cat = el.dataset.category || '';
+            const visible = category === 'All' || cat === category;
+            el.style.display = visible ? '' : 'none';
+            if (next && next.classList.contains('node-children')) {
+                if (!visible) {
+                    next.style.display = 'none';
+                } else {
+                    const toggle = el.querySelector('.node-toggle');
+                    if (toggle && toggle.textContent === '▼') {
+                        next.style.display = '';
+                    }
+                }
+                el = next.nextElementSibling;
+                continue;
+            }
+        }
+        el = next;
     }
 }
 
@@ -476,8 +827,10 @@ function highlightTreeNode(path) {
         node.classList.remove('highlighted');
     });
     
-    // Add highlight to selected node
-    const node = document.querySelector(`[data-path="${path}"]`);
+    // Find node by dataset to avoid CSS selector injection
+    const node = Array.from(document.querySelectorAll('.tree-node[data-path]')).find(
+        n => n.dataset.path === path
+    );
     if (node) {
         node.classList.add('highlighted');
         node.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -846,5 +1199,16 @@ window.toggleAutoScroll = toggleAutoScroll;
 window.copyResult = copyResult;
 window.toggleParameterHistory = toggleParameterHistory;
 window.refreshParameterList = refreshParameterList;
+// Data model browser functions
+window.toggleNode = toggleNode;
+window.filterDataModel = filterDataModel;
+window.clearSearch = clearSearch;
+window.refreshParam = refreshParam;
+window.editParam = editParam;
+window.saveParam = saveParam;
+window.cancelEdit = cancelEdit;
+window.copyPath = copyPath;
+window.expandLargeModel = expandLargeModel;
+window.filterByCategory = filterByCategory;
 
 console.log('🎯 Enhanced USP Controller JavaScript loaded successfully');

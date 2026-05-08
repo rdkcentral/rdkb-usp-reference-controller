@@ -21,13 +21,18 @@
 Flask USP Controller with Dynamic Data Model Discovery and Large Model Support
 Enhanced version with chunked discovery for large data models like DeviceInfo
 """
-from flask import Flask, request, render_template, jsonify, redirect, url_for
+from flask import Flask, request, render_template, jsonify, redirect, url_for, Response, stream_with_context
 import json
 import subprocess
 import re
 import time
 import logging
 import os
+import queue
+import uuid
+import threading
+import atexit
+from html import escape as html_escape
 from typing import Dict, List, Any, Optional, Set
 
 # Configure logging
@@ -38,13 +43,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
+# SSE: list of per-client queues; protected by its own lock
+_sse_clients: List[queue.Queue] = []
+_sse_lock = threading.Lock()
+
+# Limits
+_SSE_QUEUE_MAX = 200      # max items per SSE client queue before old ones are dropped
+_EVENTS_HISTORY_MAX = 500 # max events kept in controller.events history
+
 class USPController:
     """Enhanced USP Controller with dynamic data model discovery and large model support"""
     
     def __init__(self):
         # Default configuration - matching your existing pattern
         self.config = {
-            'broker': "10.26.60.86",
+            'broker': "10.2.175.86",
             'broker_port': "1883",
             'broker_topic': "/usp/controller",
             'broker_agent': "/usp/agent",
@@ -68,6 +81,14 @@ class USPController:
         self.dmcli_available = False
         self.discovered_paths = []
         self.supported_data_models = {}
+        
+        # Event tracking
+        self.events: List[Dict] = []
+        self.event_stats: Dict[str, int] = {
+            'wifi': 0, 'iot': 0, 'dac': 0, 'system': 0, 'network': 0
+        }
+        self._events_lock = threading.Lock()
+        self._model_lock = threading.Lock()
         
         # MQTT USP Client path - matching your existing setup
         self.mqtt_client_path = './mqtt-usp-client.py'
@@ -175,7 +196,8 @@ class USPController:
                 self.log(f"USP Raw output length: {len(output)} chars")
             
             try:
-                json_output = json.loads(output)
+                decoder = json.JSONDecoder()
+                json_output, _ = decoder.raw_decode(output.strip())
                 if not quiet:
                     self.log(f"JSON parsed successfully, keys: {list(json_output.keys())}")
             except json.JSONDecodeError as e:
@@ -222,7 +244,8 @@ class USPController:
                 self.log(f"USP Raw output length: {len(output)} chars")
             
             try:
-                json_output = json.loads(output)
+                decoder = json.JSONDecoder()
+                json_output, _ = decoder.raw_decode(output.strip())
                 if not quiet:
                     self.log(f"JSON parsed successfully, keys: {list(json_output.keys())}")
             except json.JSONDecodeError as e:
@@ -551,7 +574,8 @@ class USPController:
             "Device.X_RDK_Webpa.",
             "Device.X_RDKCENTRAL-COM_Webpa.",
             "Device.X_RDK_WebConfig.",
-            "Device.SoftwareModules."
+            "Device.SoftwareModules.",
+            "Device.IoT."
         ]
         
         # Remove duplicates while preserving order
@@ -1782,6 +1806,176 @@ class USPController:
                 'discovered_paths_count': 0
             }
     
+    def _update_model_value(self, path: str, value: str):
+        """Update a parameter value in the in-memory data_model after a ValueChange event."""
+        try:
+            parts = path.strip('.').split('.')
+            with self._model_lock:
+                current = self.data_model
+                for part in parts[:-1]:
+                    node = current.get(part)
+                    if node is None:
+                        return
+                    if isinstance(node, dict) and 'children' in node:
+                        current = node['children']
+                    else:
+                        return
+                leaf_key = parts[-1]
+                if leaf_key in current and isinstance(current[leaf_key], dict):
+                    current[leaf_key]['value'] = value
+        except Exception as exc:
+            self.log(f"_update_model_value error for {path}: {exc}")
+
+    # ── IoT Device Management ──────────────────────────────────────────────────
+
+    _IOT_SAFE_CLASS_RE = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
+    _IOT_SAFE_ID_RE    = re.compile(r'^[0-9A-Fa-f]{1,64}$')
+    _IOT_SAFE_URI_RE   = re.compile(r'^[A-Za-z0-9/\-_.]{1,256}$')
+
+    def _validate_iot_input(self, value: str, pattern) -> bool:
+        """Return True if value matches the allowed pattern."""
+        return bool(pattern.match(value)) if value else False
+
+    def _parse_operate_output_args(self, result) -> Dict[str, Any]:
+        """Parse output args from an operate response (handles multiple response shapes)."""
+        if not result or not isinstance(result, dict):
+            return {}
+        # Primary: operationResults[0].reqOutputArgs.outputArgs  (actual device response)
+        try:
+            return result["operationResults"][0]["reqOutputArgs"].get("outputArgs", {})
+        except (KeyError, IndexError, TypeError):
+            pass
+        # Secondary: operationResults[0].outputArgs
+        try:
+            return result["operationResults"][0].get("outputArgs", {})
+        except (KeyError, IndexError, TypeError):
+            pass
+        # Tertiary: operateResp[0].outputArgs
+        try:
+            return result["operateResp"][0].get("outputArgs", {})
+        except (KeyError, IndexError, TypeError):
+            pass
+        # Last resort: direct outputArgs
+        if "outputArgs" in result:
+            return result["outputArgs"]
+        return {}
+
+    def iot_get_status(self) -> Dict[str, Any]:
+        """Get IoT service status via USP operate"""
+        try:
+            result = self.usp_pa("operate", "Device.IoT.GetStatus()")
+            if result:
+                output_args = self._parse_operate_output_args(result)
+                status = output_args.get("Status", "unknown")
+                return {"success": True, "status": status}
+            # fallback: GET the parameter
+            ret = self.usp_pa("get", "Device.IoT.Status", True)
+            if ret and len(ret) > 0:
+                status = ret[0].get("resultParams", {}).get("Status", "unknown")
+                return {"success": True, "status": status}
+            return {"success": False, "error": "No response"}
+        except Exception as e:
+            self.log(f"iot_get_status error: {e}")
+            return {"success": False, "error": "IoT status request failed"}
+
+    def iot_list_devices(self, device_class: str = "") -> Dict[str, Any]:
+        """List IoT devices, optionally filtered by class"""
+        try:
+            if device_class:
+                if not self._validate_iot_input(device_class, self._IOT_SAFE_CLASS_RE):
+                    return {"success": False, "devices": [], "error": "Invalid device_class value"}
+                cmd = f"Device.IoT.Device.List(DeviceClass={device_class})"
+            else:
+                cmd = "Device.IoT.Device.List()"
+            result = self.usp_pa("operate", cmd)
+            if result:
+                output_args = self._parse_operate_output_args(result)
+                devices_raw = output_args.get("Devices", "[]")
+                try:
+                    devices = json.loads(devices_raw) if isinstance(devices_raw, str) else devices_raw
+                except Exception:
+                    devices = []
+                return {"success": True, "devices": devices}
+            # fallback: GET parameter
+            ret = self.usp_pa("get", "Device.IoT.Devices", True)
+            if ret and len(ret) > 0:
+                devices_raw = ret[0].get("resultParams", {}).get("Devices", "[]")
+                try:
+                    devices = json.loads(devices_raw) if isinstance(devices_raw, str) else []
+                except Exception:
+                    devices = []
+                return {"success": True, "devices": devices}
+            return {"success": False, "devices": [], "error": "No response"}
+        except Exception as e:
+            self.log(f"iot_list_devices error: {e}")
+            return {"success": False, "devices": [], "error": "IoT device list request failed"}
+
+    def iot_get_device(self, device_id: str) -> Dict[str, Any]:
+        """Get a single IoT device by UUID"""
+        try:
+            if not self._validate_iot_input(device_id, self._IOT_SAFE_ID_RE):
+                return {"success": False, "error": "Invalid device_id value"}
+            result = self.usp_pa("operate", f"Device.IoT.Device.Get(DeviceId={device_id})")
+            if result:
+                output_args = self._parse_operate_output_args(result)
+                device_raw = output_args.get("Device", "{}")
+                try:
+                    device = json.loads(device_raw) if isinstance(device_raw, str) else device_raw
+                except Exception:
+                    device = {}
+                return {"success": True, "device": device}
+            return {"success": False, "error": "No response"}
+        except Exception as e:
+            self.log(f"iot_get_device error: {e}")
+            return {"success": False, "error": "IoT device request failed"}
+
+    def iot_resource_read(self, uri: str) -> Dict[str, Any]:
+        """Read an IoT resource value"""
+        try:
+            if not self._validate_iot_input(uri, self._IOT_SAFE_URI_RE):
+                return {"success": False, "error": "Invalid uri value", "uri": uri}
+            result = self.usp_pa("operate", f"Device.IoT.Resource.Read(Uri={uri})")
+            if result:
+                output_args = self._parse_operate_output_args(result)
+                value = output_args.get("Value", "")
+                return {"success": True, "value": value, "uri": uri}
+            return {"success": False, "error": "No response", "uri": uri}
+        except Exception as e:
+            self.log(f"iot_resource_read error: {e}")
+            return {"success": False, "error": "IoT resource read failed", "uri": uri}
+
+    def iot_resource_write(self, uri: str, value: str) -> Dict[str, Any]:
+        """Write an IoT resource value"""
+        try:
+            if not self._validate_iot_input(uri, self._IOT_SAFE_URI_RE):
+                return {"success": False, "error": "Invalid uri value", "uri": uri}
+            if not value or len(value) > 256:
+                return {"success": False, "error": "Invalid value", "uri": uri}
+            result = self.usp_pa("operate", f"Device.IoT.Resource.Write(Uri={uri},Value={value})")
+            if result:
+                output_args = self._parse_operate_output_args(result)
+                status = output_args.get("Status", "Unknown")
+                return {"success": True, "status": status, "uri": uri, "value": value}
+            return {"success": False, "error": "No response", "uri": uri}
+        except Exception as e:
+            self.log(f"iot_resource_write error: {e}")
+            return {"success": False, "error": "IoT resource write failed", "uri": uri}
+
+    def iot_metadata_read(self, uri: str) -> Dict[str, Any]:
+        """Read IoT device metadata"""
+        try:
+            if not self._validate_iot_input(uri, self._IOT_SAFE_URI_RE):
+                return {"success": False, "error": "Invalid uri value", "uri": uri}
+            result = self.usp_pa("operate", f"Device.IoT.Metadata.Read(Uri={uri})")
+            if result:
+                output_args = self._parse_operate_output_args(result)
+                value = output_args.get("Value", "")
+                return {"success": True, "value": value, "uri": uri}
+            return {"success": False, "error": "No response", "uri": uri}
+        except Exception as e:
+            self.log(f"iot_metadata_read error: {e}")
+            return {"success": False, "error": "IoT metadata read failed", "uri": uri}
+
     def log(self, message: str):
         """Add log message"""
         timestamp = time.strftime('%H:%M:%S')
@@ -1796,6 +1990,76 @@ class USPController:
 # Global controller instance
 controller = USPController()
 
+# ---------------------------------------------------------------------------
+# USP Event Listener — started as a daemon thread
+# ---------------------------------------------------------------------------
+def _on_usp_event(event: dict):
+    """Callback invoked by USPEventListener for every inbound NOTIFY."""
+    try:
+        # For ValueChange: record previous value, then update model
+        if event.get("type") == "ValueChange":
+            path = event.get("path", "")
+            # Look up current value in data_model to store as previous_value
+            try:
+                parts = path.strip('.').split('.')
+                with controller._model_lock:
+                    cur = controller.data_model
+                    for part in parts[:-1]:
+                        node = cur.get(part)
+                        if node is None:
+                            break
+                        cur = node.get('children', {}) if isinstance(node, dict) else {}
+                    leaf = cur.get(parts[-1], {})
+                    prev = leaf.get('value') if isinstance(leaf, dict) else None
+                event["previous_value"] = prev
+            except Exception:
+                event["previous_value"] = None
+            controller._update_model_value(path, event.get("value", ""))
+
+        # Store event (max 500)
+        with controller._events_lock:
+            controller.events.append(event)
+            if len(controller.events) > _EVENTS_HISTORY_MAX:
+                controller.events = controller.events[-_EVENTS_HISTORY_MAX:]
+            cat = event.get("category", "system")
+            controller.event_stats[cat] = controller.event_stats.get(cat, 0) + 1
+
+        # Push to all SSE clients
+        event_json = json.dumps(event)
+        with _sse_lock:
+            dead = []
+            for q in _sse_clients:
+                try:
+                    q.put_nowait(event_json)
+                except queue.Full:
+                    dead.append(q)
+            for q in dead:
+                _sse_clients.remove(q)
+
+        logger.info(f"USP Event: [{event.get('category')}] {event.get('title')} — {event.get('description', '')}")
+
+    except Exception as exc:
+        logger.error(f"_on_usp_event error: {exc}")
+
+
+try:
+    from usp_event_listener import USPEventListener
+    _event_listener = USPEventListener(
+        config=controller.config,
+        event_callback=_on_usp_event,
+        log_fn=controller.log,
+    )
+    _event_listener.start()
+
+    def _shutdown_listener():
+        _event_listener.stop()
+
+    atexit.register(_shutdown_listener)
+    logger.info("USPEventListener started successfully")
+except Exception as _el_exc:
+    _event_listener = None
+    logger.warning(f"USPEventListener could not be started: {_el_exc}")
+
 def count_data_model_parameters(data_model, count=0):
     """Count total parameters in hierarchical data model"""
     for key, value in data_model.items():
@@ -1806,40 +2070,67 @@ def count_data_model_parameters(data_model, count=0):
                 count = count_data_model_parameters(value['children'], count)
     return count
 
+def _js_str(path):
+    """Escape a path for safe use inside a single-quoted JS string literal in an HTML attribute."""
+    # Escape backslashes first, then single quotes
+    return path.replace('\\', '\\\\').replace("'", "\\'")
+
 def render_data_model(data_model, prefix="", level=0):
-    """Render data model as HTML tree with size information"""
+    """Render data model as HTML tree with interactive features"""
     html = ""
-    indent = "&nbsp;" * (level * 4)
-    
+
     for key, value in data_model.items():
         if isinstance(value, dict):
             if value.get('type') == 'parameter':
-                path = value.get('path', f"{prefix}.{key}")
-                param_value = value.get("value", "N/A")
-                param_type = value.get("dataType", "unknown")
-                
-                html += f'<div class="tree-node parameter" onclick="selectParameter(\'{path}\')" title="Click to select this parameter">'
-                html += f'{indent}📄 <strong>{key}:</strong> '
-                html += f'<span class="parameter-value">{param_value}</span> '
-                html += f'<span class="parameter-type">({param_type})</span>'
+                path = value.get('path', f"{prefix}.{key}".lstrip('.'))
+                param_value = html_escape(str(value.get("value", "N/A")))
+                param_type = html_escape(value.get("dataType", "unknown"))
+                access = value.get("access", "readwrite")
+                safe_id = html_escape(path.replace('.', '-').replace(' ', '_'))
+                access_icon = '🔒' if access == 'readonly' else '✏️'
+                type_class = f"type-{param_type.lower().replace(' ', '-')}"
+                js_path = _js_str(path)
+                attr_path = html_escape(path)
+
+                html += f'<div class="tree-node parameter" data-path="{attr_path}" data-access="{html_escape(access)}" onclick="selectParameter(\'{js_path}\')" title="Click to select this parameter">'
+                html += f'<span class="access-icon" title="{html_escape(access)}">{access_icon}</span>'
+                html += f'<span class="param-name">{html_escape(key)}</span>'
+                html += f'<span class="param-value" id="val-{safe_id}">{param_value}</span>'
+                html += f'<span class="param-type-badge {type_class}">{param_type}</span>'
+                html += f'<button class="btn-refresh-param" onclick="event.stopPropagation(); refreshParam(\'{js_path}\')" title="Refresh value">↻</button>'
+                if access != 'readonly':
+                    html += f'<button class="btn-edit-param" onclick="event.stopPropagation(); editParam(\'{js_path}\')" title="Edit value">✎</button>'
+                html += f'<button class="btn-copy-path" onclick="event.stopPropagation(); copyPath(\'{js_path}\')" title="Copy path">📋</button>'
                 html += '</div>'
+
             elif value.get('type') == 'object' and 'children' in value:
                 child_count = len(value['children'])
                 is_large = child_count > 20
                 icon = "📁" if not is_large else "📂"
                 size_info = f" ({child_count} items)" if child_count > 5 else ""
                 large_indicator = " <span class='large-model'>LARGE</span>" if is_large else ""
-                
-                html += f'<div class="tree-node object">'
-                html += f'{indent}{icon} <strong>{key}/</strong>{size_info}{large_indicator}'
+                full_path = f"{prefix}.{key}".lstrip('.')
+                category = controller.categorize_data_model(key) if level == 0 else ""
+                js_full_path = _js_str(full_path)
+                attr_full_path = html_escape(full_path)
+
+                html += f'<div class="tree-node object" data-path="{attr_full_path}" data-category="{html_escape(category)}">'
+                html += f'<span class="node-toggle" onclick="event.stopPropagation(); toggleNode(this)">▶</span>'
+                html += f'<span class="node-label">{icon} <strong>{html_escape(key)}/</strong>{size_info}{large_indicator}</span>'
+                html += f'<button class="btn-copy-path" onclick="event.stopPropagation(); copyPath(\'{js_full_path}\')" title="Copy path">📋</button>'
                 html += '</div>'
-                
-                # Only expand large models if specifically requested
+
+                html += '<div class="node-children" style="display:none;">'
                 if not is_large or level < 2:
-                    html += render_data_model(value['children'], f"{prefix}.{key}", level + 1)
-                elif is_large:
-                    html += f'<div class="tree-node collapsed">{indent}&nbsp;&nbsp;&nbsp;&nbsp;... (large model - click to expand)</div>'
-    
+                    html += render_data_model(value['children'], full_path, level + 1)
+                else:
+                    large_path = f"{full_path}."
+                    js_large_path = _js_str(large_path)
+                    html += f'<div class="tree-node collapsed large-placeholder" data-path="{attr_full_path}" onclick="expandLargeModel(\'{js_large_path}\', this)">'
+                    html += f'⟳ Click to load {child_count} items from {html_escape(full_path)}...'
+                    html += '</div>'
+                html += '</div>'
+
     return html
 
 # Flask Routes
@@ -1892,6 +2183,63 @@ def api_data_model_summary():
     """API endpoint for data model summary including large model info"""
     summary = controller.get_data_model_summary()
     return jsonify(summary)
+
+@app.route('/api/get_parameter_ajax')
+def api_get_parameter_ajax():
+    """AJAX endpoint to fetch a live parameter value"""
+    path = request.args.get('path', '').strip()
+    if not path:
+        return jsonify({'success': False, 'error': 'No path provided'})
+    try:
+        result = controller.get_parameter_chunked(path)
+        if result.get('success'):
+            return jsonify(result)
+        # Log the real error server-side but return a safe message to the client
+        controller.log(f"get_parameter_ajax failed for {path}: {result.get('error', 'unknown')}")
+        return jsonify({'success': False, 'error': 'Parameter fetch failed', 'path': path})
+    except Exception as exc:
+        controller.log(f"get_parameter_ajax exception for {path}: {exc}")
+        return jsonify({'success': False, 'error': 'Parameter fetch failed'})
+
+@app.route('/api/set_parameter_ajax', methods=['POST'])
+def api_set_parameter_ajax():
+    """AJAX endpoint to set a parameter value"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON body'})
+    path = data.get('path', '').strip()
+    value = data.get('value', '')
+    if not path:
+        return jsonify({'success': False, 'error': 'Missing path'})
+    try:
+        result = controller.set_parameter(path, str(value))
+        if result.get('success'):
+            return jsonify(result)
+        controller.log(f"set_parameter_ajax failed for {path}: {result.get('error', 'unknown')}")
+        return jsonify({'success': False, 'error': 'Parameter set failed', 'path': path})
+    except Exception as exc:
+        controller.log(f"set_parameter_ajax exception for {path}: {exc}")
+        return jsonify({'success': False, 'error': 'Parameter set failed'})
+
+@app.route('/api/expand_model')
+def api_expand_model():
+    """AJAX endpoint to lazy-load a large model sub-tree"""
+    path = request.args.get('path', '').strip()
+    if not path:
+        return jsonify({'success': False, 'error': 'No path provided'})
+    try:
+        result = controller.get_large_object_chunked(path)
+        if result.get('success'):
+            mini_model = {}
+            for param_name, value in result.get('data', {}).items():
+                controller.add_usp_to_hierarchical_model(mini_model, path.rstrip('.'), {param_name: value})
+            html_content = render_data_model(mini_model)
+            return jsonify({'success': True, 'html': html_content})
+        controller.log(f"expand_model failed for {path}: {result.get('error', 'unknown')}")
+        return jsonify({'success': False, 'error': 'Model expansion failed'})
+    except Exception as exc:
+        controller.log(f"expand_model exception for {path}: {exc}")
+        return jsonify({'success': False, 'error': 'Model expansion failed'})
 
 @app.route('/rediscover', methods=['POST'])
 def rediscover_data_models():
@@ -2177,6 +2525,154 @@ def test_path(test_path):
             'path': test_path,
             'error': str(e)
         })
+
+@app.route('/api/events/stream')
+def api_events_stream():
+    """SSE endpoint — streams USP events to the browser in real time."""
+    def event_generator():
+        client_q: queue.Queue = queue.Queue(maxsize=_SSE_QUEUE_MAX)
+        with _sse_lock:
+            _sse_clients.append(client_q)
+        try:
+            # Send a heartbeat immediately so the browser knows we're alive
+            yield "data: {\"type\":\"heartbeat\"}\n\n"
+            while True:
+                try:
+                    data = client_q.get(timeout=30)
+                    yield f"data: {data}\n\n"
+                except queue.Empty:
+                    # Keep-alive comment
+                    yield ": heartbeat\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _sse_lock:
+                try:
+                    _sse_clients.remove(client_q)
+                except ValueError:
+                    pass
+
+    return Response(
+        stream_with_context(event_generator()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.route('/api/events')
+def api_events():
+    """Return the last N events as JSON, optionally filtered by category."""
+    category = request.args.get('category', '').strip().lower()
+    limit = min(int(request.args.get('limit', 100)), 500)
+    with controller._events_lock:
+        events = list(controller.events)
+    if category and category != 'all':
+        events = [e for e in events if e.get('category') == category]
+    return jsonify({
+        'events': events[-limit:],
+        'total': len(events),
+    })
+
+
+@app.route('/api/events/clear', methods=['DELETE', 'POST'])
+def api_events_clear():
+    """Clear the event history."""
+    with controller._events_lock:
+        controller.events.clear()
+        for k in controller.event_stats:
+            controller.event_stats[k] = 0
+    return jsonify({'success': True, 'message': 'Event history cleared'})
+
+
+@app.route('/api/events/stats')
+def api_events_stats():
+    """Return per-category event counts."""
+    with controller._events_lock:
+        stats = dict(controller.event_stats)
+        total = sum(stats.values())
+    return jsonify({'stats': stats, 'total': total})
+
+
+@app.route('/api/events/subscribe', methods=['POST'])
+def api_events_subscribe():
+    """Subscribe to an additional path at runtime."""
+    data = request.get_json(silent=True) or {}
+    sub_id = data.get('id', '').strip()
+    notif_type = data.get('type', '').strip()
+    path = data.get('path', '').strip()
+    category = data.get('category', 'system').strip()
+
+    if not sub_id or not notif_type or not path:
+        return jsonify({'success': False, 'error': 'id, type and path are required'}), 400
+
+    if _event_listener is None:
+        return jsonify({'success': False, 'error': 'Event listener not running'}), 503
+
+    try:
+        _event_listener.send_add_subscription(sub_id, notif_type, path, category)
+        return jsonify({'success': True, 'message': f'Subscription {sub_id} requested'})
+    except Exception as exc:
+        logger.error(f"api_events_subscribe error: {exc}")
+        return jsonify({'success': False, 'error': 'Failed to create subscription'}), 500
+
+
+@app.route('/api/events/subscriptions')
+def api_events_subscriptions():
+    """Return active subscription info."""
+    if _event_listener is None:
+        return jsonify({'subscriptions': [], 'error': 'listener not running'})
+    with _event_listener._lock:
+        subs = list(_event_listener.subscriptions.values())
+    return jsonify({'subscriptions': subs})
+
+
+# ── IoT Management Routes ──────────────────────────────────────────────────
+
+@app.route('/api/iot/status')
+def api_iot_status():
+    """Get IoT service status"""
+    return jsonify(controller.iot_get_status())
+
+@app.route('/api/iot/devices')
+def api_iot_devices():
+    """List IoT devices, optional ?device_class=light filter"""
+    device_class = request.args.get('device_class', '').strip()
+    return jsonify(controller.iot_list_devices(device_class))
+
+@app.route('/api/iot/device/<device_id>')
+def api_iot_device(device_id):
+    """Get single IoT device by UUID"""
+    return jsonify(controller.iot_get_device(device_id))
+
+@app.route('/api/iot/resource/read')
+def api_iot_resource_read():
+    """Read an IoT resource. Query param: uri"""
+    uri = request.args.get('uri', '').strip()
+    if not uri:
+        return jsonify({'success': False, 'error': 'uri parameter required'}), 400
+    return jsonify(controller.iot_resource_read(uri))
+
+@app.route('/api/iot/resource/write', methods=['POST'])
+def api_iot_resource_write():
+    """Write an IoT resource. JSON body: {uri, value}"""
+    data = request.get_json(silent=True) or {}
+    uri = data.get('uri', '').strip()
+    value = data.get('value', '')
+    if not uri:
+        return jsonify({'success': False, 'error': 'uri required'}), 400
+    return jsonify(controller.iot_resource_write(uri, str(value)))
+
+@app.route('/api/iot/metadata/read')
+def api_iot_metadata_read():
+    """Read IoT device metadata. Query param: uri"""
+    uri = request.args.get('uri', '').strip()
+    if not uri:
+        return jsonify({'success': False, 'error': 'uri parameter required'}), 400
+    return jsonify(controller.iot_metadata_read(uri))
+
 
 if __name__ == '__main__':
     print("=" * 60)
