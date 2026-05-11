@@ -54,7 +54,7 @@
 
     .param-path-info {
         padding: 8px 12px;
-        background: rgba(100, 181, 246, 0.1);
+        background: rgba(139, 92, 246, 0.1);
         border-left: 3px solid var(--text-accent);
         border-radius: 4px;
         color: var(--text-secondary);
@@ -72,7 +72,7 @@
     .value-hint {
         display: inline-block;
         padding: 2px 8px;
-        background: rgba(100, 181, 246, 0.1);
+        background: rgba(139, 92, 246, 0.1);
         border-radius: 4px;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -81,7 +81,7 @@
     }
 
     .value-hint:hover {
-        background: rgba(100, 181, 246, 0.2);
+        background: rgba(139, 92, 246, 0.2);
         transform: translateY(-1px);
     }
 
@@ -94,12 +94,12 @@
     /* Input validation states */
     .form-control.valid {
         border-color: var(--success);
-        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
     }
 
     .form-control.invalid {
         border-color: var(--error);
-        box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.2);
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
     }
 
     /* ------------------------------------------------------------------ */
@@ -130,12 +130,12 @@
     }
     .filter-btn:hover { opacity: 0.85; }
     .filter-btn.active { border-color: currentColor; color: white; }
-    .filter-btn.all.active   { background: #607d8b; }
-    .filter-btn.wifi.active  { background: #1976d2; }
-    .filter-btn.iot.active   { background: #388e3c; }
-    .filter-btn.dac.active   { background: #e65100; }
-    .filter-btn.system.active{ background: #c62828; }
-    .filter-btn.network.active{ background: #f9a825; color: #222; }
+    .filter-btn.all.active   { background: #475569; }
+    .filter-btn.wifi.active  { background: #2563eb; }
+    .filter-btn.iot.active   { background: #059669; }
+    .filter-btn.dac.active   { background: #ea580c; }
+    .filter-btn.system.active{ background: #dc2626; }
+    .filter-btn.network.active{ background: #d97706; color: #111; }
 
     .events-stats-bar {
         display: flex;
@@ -161,11 +161,11 @@
         font-weight: 700;
         background: rgba(255,255,255,0.12);
     }
-    .evt-stat.wifi   .badge { background: #1976d2; }
-    .evt-stat.iot    .badge { background: #388e3c; }
-    .evt-stat.dac    .badge { background: #e65100; }
-    .evt-stat.system .badge { background: #c62828; }
-    .evt-stat.network .badge { background: #f9a825; color: #222; }
+    .evt-stat.wifi   .badge { background: #2563eb; }
+    .evt-stat.iot    .badge { background: #059669; }
+    .evt-stat.dac    .badge { background: #ea580c; }
+    .evt-stat.system .badge { background: #dc2626; }
+    .evt-stat.network .badge { background: #d97706; color: #111; }
 
     /* SSE connection indicator */
     .sse-status {
@@ -180,11 +180,11 @@
     .sse-dot {
         width: 8px; height: 8px;
         border-radius: 50%;
-        background: #607d8b;
+        background: #484f58;
         transition: background 0.3s;
     }
-    .sse-dot.connected { background: #4caf50; animation: pulse 2s infinite; }
-    .sse-dot.error     { background: #f44336; }
+    .sse-dot.connected { background: #10b981; animation: pulse 2s infinite; }
+    .sse-dot.error     { background: #ef4444; }
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50%       { opacity: 0.4; }
@@ -203,7 +203,7 @@
     }
     .events-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
     .events-table tr:last-child td { border-bottom: none; }
-    .events-table tr.evt-row:hover { background: rgba(255,255,255,0.04); }
+    .events-table tr.evt-row:hover { background: rgba(139, 92, 246, 0.08); }
 
     .evt-row td { font-size: 13px; }
 
@@ -214,11 +214,11 @@
         margin-right: 6px;
         flex-shrink: 0;
     }
-    .cat-dot.wifi    { background: #1976d2; }
-    .cat-dot.iot     { background: #4caf50; }
-    .cat-dot.dac     { background: #ff6d00; }
-    .cat-dot.system  { background: #ef5350; }
-    .cat-dot.network { background: #fdd835; }
+    .cat-dot.wifi    { background: #3b82f6; }
+    .cat-dot.iot     { background: #10b981; }
+    .cat-dot.dac     { background: #f97316; }
+    .cat-dot.system  { background: #ef4444; }
+    .cat-dot.network { background: #f59e0b; }
 
     .cat-badge {
         display: inline-block;
@@ -228,11 +228,11 @@
         font-weight: 700;
         text-transform: uppercase;
     }
-    .cat-badge.wifi    { background: rgba(25,118,210,0.2);   color: #90caf9; }
-    .cat-badge.iot     { background: rgba(76,175,80,0.2);    color: #a5d6a7; }
-    .cat-badge.dac     { background: rgba(255,109,0,0.2);    color: #ffcc80; }
-    .cat-badge.system  { background: rgba(239,83,80,0.2);    color: #ef9a9a; }
-    .cat-badge.network { background: rgba(253,216,53,0.2);   color: #fff59d; }
+    .cat-badge.wifi    { background: rgba(59,130,246,0.2);   color: #93c5fd; }
+    .cat-badge.iot     { background: rgba(16,185,129,0.2);   color: #6ee7b7; }
+    .cat-badge.dac     { background: rgba(249,115,22,0.2);   color: #fdba74; }
+    .cat-badge.system  { background: rgba(239,68,68,0.2);    color: #fca5a5; }
+    .cat-badge.network { background: rgba(245,158,11,0.2);   color: #fde68a; }
 
     .sev-icon { font-size: 14px; }
 
@@ -264,9 +264,9 @@
         animation: flashPanel 1s ease;
     }
     @keyframes flashPanel {
-        0%   { box-shadow: 0 0 0 0 rgba(255,109,0,0.7); }
-        50%  { box-shadow: 0 0 0 6px rgba(255,109,0,0.4); }
-        100% { box-shadow: 0 0 0 0 rgba(255,109,0,0); }
+        0%   { box-shadow: 0 0 0 0 rgba(139,92,246,0.7); }
+        50%  { box-shadow: 0 0 0 6px rgba(139,92,246,0.4); }
+        100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
     }
 
     /* IoT Panel styles */
@@ -276,9 +276,9 @@
         gap: 12px;
         margin-bottom: 16px;
         padding: 10px 14px;
-        background: rgba(76,175,80,0.08);
+        background: rgba(16,185,129,0.08);
         border-radius: 8px;
-        border: 1px solid rgba(76,175,80,0.2);
+        border: 1px solid rgba(16,185,129,0.2);
     }
     .iot-filter-bar {
         display: flex;
@@ -313,7 +313,7 @@
     .iot-result-line {
         margin-top: 8px;
         font-size: 12px;
-        color: #a5d6a7;
+        color: #9ae6b4;
         font-family: 'JetBrains Mono', monospace;
         min-height: 1.4em;
     }
