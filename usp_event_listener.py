@@ -35,7 +35,7 @@ import usp_msg_1_2_pb2 as usp_msg
 import usp_record_1_2_pb2 as usp_record
 
 logger = logging.getLogger(__name__)
-CONTROLLER_RESOLVE_TIMEOUT_SECONDS = 10
+CONTROLLER_RESOLVE_TIMEOUT_SECONDS = 2
 
 # ---------------------------------------------------------------------------
 # Subscription definitions
@@ -55,6 +55,8 @@ SUBSCRIPTIONS = [
     {"id": "sub-iot-device-count",   "type": "ValueChange",    "path": "Device.IoT.DeviceNumberOfEntries","category": "iot", "required": False},
     {"id": "sub-iot-device-add",     "type": "ObjectCreation", "path": "Device.IoT.",                     "category": "iot", "required": False},
     {"id": "sub-iot-device-del",     "type": "ObjectDeletion", "path": "Device.IoT.",                     "category": "iot", "required": False},
+    {"id": "sub-iot-resource-change","type": "ValueChange",    "path": "Device.IoT.Device.",              "category": "iot", "required": False},
+    {"id": "sub-iot-event",          "type": "Event",          "path": "Device.IoT.",                     "category": "iot", "required": False},
     # DAC / Software Modules
     {"id": "sub-du-install",         "type": "OperationComplete", "path": "Device.SoftwareModules.",      "category": "dac"},
     {"id": "sub-du-creation",        "type": "ObjectCreation", "path": "Device.SoftwareModules.DeploymentUnit.", "category": "dac"},
@@ -82,6 +84,8 @@ _NOTIF_META = {
     "sub-iot-device-count":   {"title": "IoT Device Count Changed",         "severity": "info"},
     "sub-iot-device-add":     {"title": "IoT Device Paired",                "severity": "success"},
     "sub-iot-device-del":     {"title": "IoT Device Removed",               "severity": "warning"},
+    "sub-iot-resource-change":{"title": "IoT Resource Value Changed",       "severity": "info"},
+    "sub-iot-event":          {"title": "IoT Device Event",                 "severity": "info"},
     "sub-du-install":         {"title": "Software Module Operation",        "severity": "info"},
     "sub-du-creation":        {"title": "Deployment Unit Created",          "severity": "success"},
     "sub-du-deletion":        {"title": "Deployment Unit Deleted",          "severity": "warning"},
@@ -281,7 +285,7 @@ class USPEventListener:
         out_msg.header.msg_type = usp_msg.Header.ADD
 
         add_msg = usp_msg.Add()
-        add_msg.allow_partial = False
+        add_msg.allow_partial = True
         create_obj = add_msg.create_objs.add()
         create_obj.obj_path = "Device.LocalAgent.Subscription."
 
@@ -289,8 +293,7 @@ class USPEventListener:
             ("Enable",     "true",      True),
             ("ID",         sub_id,      True),
             ("NotifType",  notif_type,  True),
-            ("ReferenceList", ref_path, True),
-            ("Recipient",  recipient,   True),
+            ("ReferenceList", ref_path, False),
         ]:
             ps = create_obj.param_settings.add()
             ps.param = param
