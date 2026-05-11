@@ -29,8 +29,16 @@ function showSection(id) {
 }
 
 function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('collapsed');
-  document.querySelector('.content-area').classList.toggle('sidebar-collapsed');
+  const sidebar = document.querySelector('.sidebar');
+  const contentArea = document.querySelector('.content-area');
+  if (!sidebar || !contentArea) return;
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    sidebar.classList.toggle('mobile-open');
+  } else {
+    sidebar.classList.toggle('collapsed');
+    contentArea.classList.toggle('sidebar-collapsed');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function () {

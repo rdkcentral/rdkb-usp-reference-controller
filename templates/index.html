@@ -341,7 +341,7 @@
 <body>
   <!-- Top Navbar -->
   <nav class="top-navbar">
-    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation menu">☰</button>
     <span class="brand"><i class="fas fa-microchip"></i> USP Controller</span>
     <div class="navbar-right">
       <span class="connection-pill {{ 'pill-connected' if connected else 'pill-disconnected' }}">
@@ -356,12 +356,12 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <nav class="sidebar-nav">
-        <a class="nav-item" data-section="section-dashboard"  onclick="showSection('section-dashboard')"><i class="fas fa-home"></i> Dashboard</a>
-        <a class="nav-item" data-section="section-parameters" onclick="showSection('section-parameters')"><i class="fas fa-sliders-h"></i> Parameters</a>
-        <a class="nav-item" data-section="section-dac"        onclick="showSection('section-dac')"><i class="fas fa-cubes"></i> DAC Apps</a>
-        <a class="nav-item" data-section="section-modules"    onclick="showSection('section-modules')"><i class="fas fa-server"></i> SW Modules</a>
-        <a class="nav-item" data-section="section-iot"        onclick="showSection('section-iot')"><i class="fas fa-microchip"></i> IoT Devices</a>
-        <a class="nav-item" data-section="section-events"     onclick="showSection('section-events')"><i class="fas fa-bell"></i> USP Events</a>
+        <a class="nav-item" data-section="section-dashboard"  onclick="showSection('section-dashboard')"  role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')showSection('section-dashboard')"><i class="fas fa-home"></i> Dashboard</a>
+        <a class="nav-item" data-section="section-parameters" onclick="showSection('section-parameters')" role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')showSection('section-parameters')"><i class="fas fa-sliders-h"></i> Parameters</a>
+        <a class="nav-item" data-section="section-dac"        onclick="showSection('section-dac')"        role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')showSection('section-dac')"><i class="fas fa-cubes"></i> DAC Apps</a>
+        <a class="nav-item" data-section="section-modules"    onclick="showSection('section-modules')"    role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')showSection('section-modules')"><i class="fas fa-server"></i> SW Modules</a>
+        <a class="nav-item" data-section="section-iot"        onclick="showSection('section-iot')"        role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')showSection('section-iot')"><i class="fas fa-microchip"></i> IoT Devices</a>
+        <a class="nav-item" data-section="section-events"     onclick="showSection('section-events')"     role="button" tabindex="0" onkeypress="if(event.key==='Enter'||event.key===' ')showSection('section-events')"><i class="fas fa-bell"></i> USP Events</a>
       </nav>
     </aside>
 
@@ -471,6 +471,39 @@
             </div>
           </div><!-- end config panel -->
         </div><!-- end dashboard-grid -->
+
+        <!-- System Logs -->
+        <section class="panel full-width" id="logs-panel" style="margin-top:24px;">
+            <div class="panel-title">
+                <span><i class="fas fa-terminal"></i> System Logs</span>
+                <div class="panel-actions">
+                    <button class="btn btn-sm btn-primary" onclick="refreshLogs()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="clearLogs()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="downloadLogs()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="toggleAutoScroll()">
+                        <i class="fas fa-arrows-alt-v"></i> Auto Scroll
+                    </button>
+                </div>
+            </div>
+            <div class="logs-container">
+                <div class="logs" id="system-logs">
+                    {% for log in logs %}
+                    <div class="log-entry">{{ log }}</div>
+                    {% endfor %}
+                    {% if not logs %}
+                    <div class="log-entry">
+                        <span class="text-muted">No logs available. System logs will appear here.</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
       </div><!-- end section-dashboard -->
 
       <!-- ── Parameter Operations Section ─────────────────────────── -->
@@ -689,6 +722,53 @@
                             <i class="fas fa-copy"></i> Copy
                         </button>
                     </div>
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Enhanced Data Model Browser -->
+            <section class="panel full-width" id="data-model-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-sitemap"></i> Data Model Browser</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-primary" onclick="expandAllNodes()">
+                            <i class="fas fa-expand"></i> Expand All
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="collapseAllNodes()">
+                            <i class="fas fa-compress"></i> Collapse All
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="searchDataModel()">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+
+                {% if data_model %}
+                <div class="data-model-header">
+                    <div class="model-stats">
+                        <span class="stat"><i class="fas fa-database"></i> {{ data_model_count }} Parameters</span>
+                        <span class="stat"><i class="fas fa-sitemap"></i> {{ data_model|length }} Top-level Objects</span>
+                    </div>
+                    <div class="model-search">
+                        <input type="text" id="model-search" placeholder="Search parameters..." class="form-control">
+                        <button class="btn-clear-search" onclick="clearSearch()" title="Clear search">✕</button>
+                        <span class="search-result-count" id="search-result-count"></span>
+                    </div>
+                </div>
+
+                <div class="category-chips" id="category-chips"></div>
+
+                <div class="data-model-tree" id="data-model-tree">
+                    {{ render_data_model(data_model) | safe }}
+                </div>
+                {% else %}
+                <div class="empty-state-large">
+                    <i class="fas fa-sitemap"></i>
+                    <h3>No Data Model Available</h3>
+                    <p>Click "Discover" to scan and build the device data model.</p>
+                    <a href="/discover" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Start Discovery
+                    </a>
                 </div>
                 {% endif %}
             </section>
