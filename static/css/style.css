@@ -1648,6 +1648,259 @@ tbody tr:last-child td {
     }
 }
 
+/* ── Enterprise Dashboard Shell ─────────────────────────────────────────────
+   Top Navbar + Sidebar + Content Area layout
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Reset body to remove the old page padding so the shell fills the viewport */
+body {
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Fixed top navbar */
+.top-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(90deg, var(--tertiary-bg), var(--accent-bg));
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+}
+
+.hamburger {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+    line-height: 1;
+}
+
+.hamburger:hover {
+    background: var(--hover-bg);
+}
+
+.brand {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.3px;
+}
+
+.brand i {
+    color: var(--text-accent);
+}
+
+.navbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.connection-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.pill-connected {
+    background: rgba(76, 175, 80, 0.2);
+    color: #a5d6a7;
+    border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.pill-disconnected {
+    background: rgba(244, 67, 54, 0.2);
+    color: #ef9a9a;
+    border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+.navbar-device {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* App layout shell: sidebar + content side-by-side */
+.app-layout {
+    display: flex;
+    margin-top: 60px;
+    min-height: calc(100vh - 60px);
+}
+
+/* Fixed left sidebar */
+.sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 220px;
+    height: calc(100vh - 60px);
+    background: linear-gradient(180deg, var(--secondary-bg), var(--tertiary-bg));
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 900;
+    transition: transform var(--transition-normal), width var(--transition-normal);
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+    transform: translateX(-220px);
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    gap: 2px;
+}
+
+/* Sidebar navigation items */
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border-left: 3px solid transparent;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.nav-item i {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+
+.nav-item:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+    border-left-color: var(--text-accent);
+}
+
+.nav-item.active {
+    background: var(--active-bg);
+    color: var(--text-accent);
+    border-left-color: var(--text-accent);
+    font-weight: 600;
+}
+
+/* Scrollable content area */
+.content-area {
+    margin-left: 220px;
+    flex: 1;
+    padding: 28px;
+    overflow-y: auto;
+    min-height: calc(100vh - 60px);
+    transition: margin-left var(--transition-normal);
+}
+
+.content-area.sidebar-collapsed {
+    margin-left: 0;
+}
+
+/* Section visibility: all hidden by default, active shown */
+.section {
+    display: none;
+}
+
+.section.section-active {
+    display: block;
+}
+
+/* Dashboard section: two-column grid for status + config */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Section headers */
+.section-header {
+    margin-bottom: 24px;
+}
+
+.section-header h2 {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.section-header h2 i {
+    color: var(--text-accent);
+}
+
+.section-header p {
+    color: var(--text-muted);
+    margin: 0;
+    font-size: 13px;
+}
+
+/* Responsive: collapse sidebar below 768px */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-220px);
+    }
+
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+
+    .content-area {
+        margin-left: 0;
+        padding: 16px;
+    }
+
+    .top-navbar {
+        padding: 0 12px;
+    }
+
+    .brand {
+        font-size: 1em;
+    }
+
+    .navbar-device {
+        display: none;
+    }
+}
+
 /* Print Styles */
 @media print {
     body {

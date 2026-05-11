@@ -17,6 +17,29 @@
  * limitations under the License.
  */
 
+// ── Sidebar Navigation ──────────────────────────────────────────────────────
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('section-active'));
+  const target = document.getElementById(id);
+  if (target) target.classList.add('section-active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const link = document.querySelector('.nav-item[data-section="' + id + '"]');
+  if (link) link.classList.add('active');
+  localStorage.setItem('activeSection', id);
+}
+
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('collapsed');
+  document.querySelector('.content-area').classList.toggle('sidebar-collapsed');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const saved = localStorage.getItem('activeSection') || 'section-dashboard';
+  showSection(saved);
+});
+
+// ── End Sidebar Navigation ───────────────────────────────────────────────────
+
 // Global state management
 const USPController = {
     state: {
