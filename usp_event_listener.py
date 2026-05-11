@@ -35,7 +35,7 @@ import usp_msg_1_2_pb2 as usp_msg
 import usp_record_1_2_pb2 as usp_record
 
 logger = logging.getLogger(__name__)
-CONTROLLER_RESOLVE_TIMEOUT_SECONDS = 2
+CONTROLLER_RESOLVE_TIMEOUT_SECONDS = 10
 
 # ---------------------------------------------------------------------------
 # Subscription definitions
@@ -290,6 +290,7 @@ class USPEventListener:
             ("ID",         sub_id,      True),
             ("NotifType",  notif_type,  True),
             ("ReferenceList", ref_path, True),
+            ("Recipient",  recipient,   True),
         ]:
             ps = create_obj.param_settings.add()
             ps.param = param
