@@ -2674,6 +2674,64 @@ def api_iot_metadata_read():
     return jsonify(controller.iot_metadata_read(uri))
 
 
+# ---------------------------------------------------------------------------
+# IoT Resource Poller — one Query() call gets all device resources at once
+# ---------------------------------------------------------------------------
+
+def _check_and_fire_iot(uri: str, new_val: str, known_values: dict):
+    """Fire a synthesized ValueChange event if value changed."""
+    old_val = known_values.get(uri)
+    if old_val is not None and old_val != new_val:
+        import datetime as _dt
+        event = {
+            "id": f"evt-{uuid.uuid4().hex}",
+            "timestamp": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+            "category": "iot",
+            "type": "ValueChange",
+            "subscription_id": "poll-iot-resource",
+            "path": uri,
+            "value": new_val,
+            "previous_value": old_val,
+            "title": "IoT Resource Value Changed",
+            "description": f"{uri} changed from {old_val!r} → {new_val!r}",
+            "severity": "info",
+        }
+        _on_usp_event(event)
+        logger.info(f"IoT poll change: {uri} {old_val!r} → {new_val!r}")
+    known_values[uri] = new_val
+
+
+def _iot_poll_loop():
+    """Poll ALL IoT resources with a single Query() call every 5 seconds."""
+    known_values: Dict[str, str] = {}
+
+    while True:
+        try:
+            result = controller.usp_pa("operate", "Device.IoT.Resource.Query()", quiet=True)
+            if result:
+                output_args = controller._parse_operate_output_args(result)
+                resources_raw = output_args.get("Resources", "[]")
+                try:
+                    resources = json.loads(resources_raw) if isinstance(resources_raw, str) else resources_raw
+                    if isinstance(resources, list):
+                        for res in resources:
+                            uri = res.get("uri", "")
+                            val = str(res.get("value", ""))
+                            if uri:
+                                _check_and_fire_iot(uri, val, known_values)
+                except Exception as e:
+                    logger.debug(f"IoT poll parse error: {e}")
+        except Exception as e:
+            logger.warning(f"IoT poll loop error: {e}")
+
+        time.sleep(5)
+
+
+_iot_poll_thread = threading.Thread(target=_iot_poll_loop, daemon=True, name="IoTPoll")
+_iot_poll_thread.start()
+logger.info("IoT resource poll thread started (5s interval, using Query)")
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("🚀 Starting Enhanced Flask USP Controller with Large Data Model Support")
