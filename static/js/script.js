@@ -18,12 +18,19 @@
  */
 
 // ── Sidebar Navigation ──────────────────────────────────────────────────────
+const VALID_SECTIONS = [
+  'section-dashboard', 'section-parameters', 'section-dac',
+  'section-modules', 'section-iot', 'section-events'
+];
+
 function showSection(id) {
+  if (!VALID_SECTIONS.includes(id)) return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('section-active'));
   const target = document.getElementById(id);
   if (target) target.classList.add('section-active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const link = document.querySelector('.nav-item[data-section="' + id + '"]');
+  const escapedId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id.replace(/[^a-z0-9-]/gi, '');
+  const link = document.querySelector('.nav-item[data-section="' + escapedId + '"]');
   if (link) link.classList.add('active');
   localStorage.setItem('activeSection', id);
 }
@@ -42,8 +49,20 @@ function toggleSidebar() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  const saved = localStorage.getItem('activeSection') || 'section-dashboard';
-  showSection(saved);
+  const saved = localStorage.getItem('activeSection');
+  const initial = (saved && VALID_SECTIONS.includes(saved)) ? saved : 'section-dashboard';
+  showSection(initial);
+
+  // Keyboard support for nav items
+  document.querySelectorAll('.nav-item').forEach(function(item) {
+    item.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const sectionId = item.getAttribute('data-section');
+        if (sectionId) showSection(sectionId);
+      }
+    });
+  });
 });
 
 // ── End Sidebar Navigation ───────────────────────────────────────────────────
