@@ -2170,7 +2170,7 @@
     // Live clock
     (function() {
       function tick() {
-        var el = document.getElementById('live-clock');
+        const el = document.getElementById('live-clock');
         if (el) el.textContent = new Date().toLocaleTimeString();
       }
       tick();
@@ -2179,14 +2179,14 @@
 
     // Hero uptime counter
     (function() {
-      var start = Date.now();
+      const start = Date.now();
       setInterval(function() {
-        var el = document.getElementById('hs-uptime');
+        const el = document.getElementById('hs-uptime');
         if (!el) return;
-        var s = Math.floor((Date.now() - start) / 1000);
-        var h = String(Math.floor(s / 3600)).padStart(2, '0');
-        var m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-        var sec = String(s % 60).padStart(2, '0');
+        const s = Math.floor((Date.now() - start) / 1000);
+        const h = String(Math.floor(s / 3600)).padStart(2, '0');
+        const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+        const sec = String(s % 60).padStart(2, '0');
         el.textContent = h + ':' + m + ':' + sec;
       }, 1000);
     })();

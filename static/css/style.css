@@ -1906,6 +1906,12 @@ body {
     50%       { border-left-color: #ff6b35; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .nav-item.active {
+        animation: none;
+    }
+}
+
 .nav-item.active {
     background: rgba(0, 198, 255, 0.15);
     color: #00c6ff;
