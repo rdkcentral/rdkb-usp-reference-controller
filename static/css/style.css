@@ -1652,7 +1652,8 @@ tbody tr:last-child td {
    Top Navbar + Sidebar + Content Area layout
    ─────────────────────────────────────────────────────────────────────────── */
 
-/* Reset body to remove the old page padding so the shell fills the viewport */
+/* Reset body to remove the old page padding so the shell fills the viewport.
+   This intentionally overrides the existing body rule above for the dashboard layout. */
 body {
     padding: 0;
     overflow-x: hidden;

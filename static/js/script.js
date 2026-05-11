@@ -29,7 +29,7 @@ function showSection(id) {
   const target = document.getElementById(id);
   if (target) target.classList.add('section-active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const escapedId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id.replace(/[^a-z0-9-]/gi, '');
+  const escapedId = id; // id is already validated against VALID_SECTIONS allowlist
   const link = document.querySelector('.nav-item[data-section="' + escapedId + '"]');
   if (link) link.classList.add('active');
   localStorage.setItem('activeSection', id);
