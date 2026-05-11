@@ -54,7 +54,7 @@
 
     .param-path-info {
         padding: 8px 12px;
-        background: rgba(139, 92, 246, 0.1);
+        background: rgba(0, 198, 255, 0.1);
         border-left: 3px solid var(--text-accent);
         border-radius: 4px;
         color: var(--text-secondary);
@@ -72,7 +72,7 @@
     .value-hint {
         display: inline-block;
         padding: 2px 8px;
-        background: rgba(139, 92, 246, 0.1);
+        background: rgba(0, 198, 255, 0.1);
         border-radius: 4px;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -81,7 +81,7 @@
     }
 
     .value-hint:hover {
-        background: rgba(139, 92, 246, 0.2);
+        background: rgba(0, 198, 255, 0.2);
         transform: translateY(-1px);
     }
 
@@ -130,7 +130,7 @@
     }
     .filter-btn:hover { opacity: 0.85; }
     .filter-btn.active { border-color: currentColor; color: white; }
-    .filter-btn.all.active   { background: #475569; }
+    .filter-btn.all.active   { background: #1a3055; }
     .filter-btn.wifi.active  { background: #2563eb; }
     .filter-btn.iot.active   { background: #059669; }
     .filter-btn.dac.active   { background: #ea580c; }
@@ -183,8 +183,8 @@
         background: #484f58;
         transition: background 0.3s;
     }
-    .sse-dot.connected { background: #10b981; animation: pulse 2s infinite; }
-    .sse-dot.error     { background: #ef4444; }
+    .sse-dot.connected { background: #00e5a0; animation: pulse 2s infinite; }
+    .sse-dot.error     { background: #ff4757; }
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50%       { opacity: 0.4; }
@@ -203,7 +203,7 @@
     }
     .events-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
     .events-table tr:last-child td { border-bottom: none; }
-    .events-table tr.evt-row:hover { background: rgba(139, 92, 246, 0.08); }
+    .events-table tr.evt-row:hover { background: rgba(0, 198, 255, 0.08); }
 
     .evt-row td { font-size: 13px; }
 
@@ -264,9 +264,9 @@
         animation: flashPanel 1s ease;
     }
     @keyframes flashPanel {
-        0%   { box-shadow: 0 0 0 0 rgba(139,92,246,0.7); }
-        50%  { box-shadow: 0 0 0 6px rgba(139,92,246,0.4); }
-        100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
+        0%   { box-shadow: 0 0 0 0 rgba(0,198,255,0.7); }
+        50%  { box-shadow: 0 0 0 6px rgba(0,198,255,0.4); }
+        100% { box-shadow: 0 0 0 0 rgba(0,198,255,0); }
     }
 
     /* IoT Panel styles */
@@ -276,9 +276,9 @@
         gap: 12px;
         margin-bottom: 16px;
         padding: 10px 14px;
-        background: rgba(16,185,129,0.08);
+        background: rgba(0,198,255,0.08);
         border-radius: 8px;
-        border: 1px solid rgba(16,185,129,0.2);
+        border: 1px solid rgba(0,198,255,0.2);
     }
     .iot-filter-bar {
         display: flex;
@@ -342,12 +342,13 @@
   <!-- Top Navbar -->
   <nav class="top-navbar">
     <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation menu">☰</button>
-    <span class="brand"><i class="fas fa-microchip"></i> USP Controller</span>
+    <span class="brand"><i class="fas fa-network-wired"></i> USP Controller</span>
     <div class="navbar-right">
       <span class="connection-pill {{ 'pill-connected' if connected else 'pill-disconnected' }}">
         <i class="fas {{ 'fa-wifi' if connected else 'fa-wifi-slash' }}"></i>
         {{ 'Connected' if connected else 'Disconnected' }}
       </span>
+      <span id="live-clock"></span>
       <span class="navbar-device">{{ device_serial or 'Unknown Device' }}</span>
     </div>
   </nav>
@@ -384,6 +385,37 @@
         <div class="section-header">
           <h2><i class="fas fa-home"></i> Dashboard</h2>
           <p>Connection status and controller configuration</p>
+        </div>
+
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <i class="fas fa-satellite-dish"></i>
+            <div>
+              <div class="hero-stat-value" id="hs-status">{{ 'Online' if connected else 'Offline' }}</div>
+              <div class="hero-stat-label">Controller Status</div>
+            </div>
+          </div>
+          <div class="hero-stat">
+            <i class="fas fa-database"></i>
+            <div>
+              <div class="hero-stat-value">{{ data_model_count }}</div>
+              <div class="hero-stat-label">Data Parameters</div>
+            </div>
+          </div>
+          <div class="hero-stat">
+            <i class="fas fa-cubes"></i>
+            <div>
+              <div class="hero-stat-value">{{ software_modules.eus|length }}</div>
+              <div class="hero-stat-label">Exec Units</div>
+            </div>
+          </div>
+          <div class="hero-stat">
+            <i class="fas fa-clock"></i>
+            <div>
+              <div class="hero-stat-value" id="hs-uptime">—</div>
+              <div class="hero-stat-label">Session Time</div>
+            </div>
+          </div>
         </div>
 
         <div class="dashboard-grid">
@@ -2132,6 +2164,32 @@
         iotRefreshStatus();
         iotLoadDevices();
     });
+    </script>
+
+    <script>
+    // Live clock
+    (function() {
+      function tick() {
+        var el = document.getElementById('live-clock');
+        if (el) el.textContent = new Date().toLocaleTimeString();
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+
+    // Hero uptime counter
+    (function() {
+      var start = Date.now();
+      setInterval(function() {
+        var el = document.getElementById('hs-uptime');
+        if (!el) return;
+        var s = Math.floor((Date.now() - start) / 1000);
+        var h = String(Math.floor(s / 3600)).padStart(2, '0');
+        var m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+        var sec = String(s % 60).padStart(2, '0');
+        el.textContent = h + ':' + m + ':' + sec;
+      }, 1000);
+    })();
     </script>
 </body>
 </html>
