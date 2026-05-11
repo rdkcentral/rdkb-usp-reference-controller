@@ -339,15 +339,57 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Enhanced Header -->
-        <header class="header">
-            <div class="header-content">
-                <h1><i class="fas fa-microchip"></i> Professional USP Controller</h1>
-                <p class="header-subtitle">Advanced RDK-B Device Management & DAC Application Control</p>
-            </div>
-            
-            <!-- Enhanced Connection Status Dashboard -->
+  <!-- Top Navbar -->
+  <nav class="top-navbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation menu">☰</button>
+    <span class="brand"><i class="fas fa-microchip"></i> USP Controller</span>
+    <div class="navbar-right">
+      <span class="connection-pill {{ 'pill-connected' if connected else 'pill-disconnected' }}">
+        <i class="fas {{ 'fa-wifi' if connected else 'fa-wifi-slash' }}"></i>
+        {{ 'Connected' if connected else 'Disconnected' }}
+      </span>
+      <span class="navbar-device">{{ device_serial or 'Unknown Device' }}</span>
+    </div>
+  </nav>
+
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="#section-dashboard"  data-section="section-dashboard"  onclick="showSection('section-dashboard')"  role="button" tabindex="0"><i class="fas fa-home"></i> Dashboard</a>
+        <a class="nav-item" href="#section-parameters" data-section="section-parameters" onclick="showSection('section-parameters')" role="button" tabindex="0"><i class="fas fa-sliders-h"></i> Parameters</a>
+        <a class="nav-item" href="#section-dac"        data-section="section-dac"        onclick="showSection('section-dac')"        role="button" tabindex="0"><i class="fas fa-cubes"></i> DAC Apps</a>
+        <a class="nav-item" href="#section-modules"    data-section="section-modules"    onclick="showSection('section-modules')"    role="button" tabindex="0"><i class="fas fa-server"></i> SW Modules</a>
+        <a class="nav-item" href="#section-iot"        data-section="section-iot"        onclick="showSection('section-iot')"        role="button" tabindex="0"><i class="fas fa-microchip"></i> IoT Devices</a>
+        <a class="nav-item" href="#section-events"     data-section="section-events"     onclick="showSection('section-events')"     role="button" tabindex="0"><i class="fas fa-bell"></i> USP Events</a>
+      </nav>
+    </aside>
+
+    <!-- Content Area -->
+    <main class="content-area">
+
+      <!-- System Messages (always visible) -->
+      {% if message %}
+      <div class="message message-{{ message.type }}" id="system-message">
+          <i class="fas {{ 'fa-check-circle' if message.type == 'success' else 'fa-exclamation-triangle' if message.type == 'warning' else 'fa-times-circle' if message.type == 'error' else 'fa-info-circle' }}"></i>
+          <span>{{ message.text }}</span>
+          <button type="button" class="message-close" onclick="this.parentElement.style.display='none'">
+              <i class="fas fa-times"></i>
+          </button>
+      </div>
+      {% endif %}
+
+      <!-- ── Dashboard Section ──────────────────────────────────────── -->
+      <div id="section-dashboard" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-home"></i> Dashboard</h2>
+          <p>Connection status and controller configuration</p>
+        </div>
+
+        <div class="dashboard-grid">
+          <!-- Connection Status -->
+          <div class="panel">
+            <div class="panel-title"><span><i class="fas fa-signal"></i> Connection Status</span></div>
             <div class="connection-status">
                 <div class="status-indicator {{ 'status-connected' if connected else 'status-disconnected' }}">
                     <i class="fas {{ 'fa-wifi' if connected else 'fa-wifi-slash' }}"></i>
@@ -379,8 +421,11 @@
                     <strong>Last Update:</strong> <span id="last-update">Now</span>
                 </div>
             </div>
-            
-            <!-- Enhanced Configuration Panel -->
+          </div><!-- end connection status panel -->
+
+          <!-- Configuration Panel -->
+          <div class="panel">
+            <div class="panel-title"><span><i class="fas fa-cog"></i> Configuration</span></div>
             <div class="config-panel">
                 <h3><i class="fas fa-cog"></i> Configuration Settings</h3>
                 <form method="post" action="/config" class="config-form">
@@ -424,22 +469,51 @@
                     </div>
                 </form>
             </div>
-        </header>
-        
-        <!-- System Messages -->
-        {% if message %}
-        <div class="message message-{{ message.type }}" id="system-message">
-            <i class="fas {{ 'fa-check-circle' if message.type == 'success' else 'fa-exclamation-triangle' if message.type == 'warning' else 'fa-times-circle' if message.type == 'error' else 'fa-info-circle' }}"></i>
-            <span>{{ message.text }}</span>
-            <button type="button" class="message-close" onclick="this.parentElement.style.display='none'">
-                <i class="fas fa-times"></i>
-            </button>
+          </div><!-- end config panel -->
+        </div><!-- end dashboard-grid -->
+
+        <!-- System Logs -->
+        <section class="panel full-width" id="logs-panel" style="margin-top:24px;">
+            <div class="panel-title">
+                <span><i class="fas fa-terminal"></i> System Logs</span>
+                <div class="panel-actions">
+                    <button class="btn btn-sm btn-primary" onclick="refreshLogs()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="clearLogs()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="downloadLogs()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="toggleAutoScroll()">
+                        <i class="fas fa-arrows-alt-v"></i> Auto Scroll
+                    </button>
+                </div>
+            </div>
+            <div class="logs-container">
+                <div class="logs" id="system-logs">
+                    {% for log in logs %}
+                    <div class="log-entry">{{ log }}</div>
+                    {% endfor %}
+                    {% if not logs %}
+                    <div class="log-entry">
+                        <span class="text-muted">No logs available. System logs will appear here.</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+      </div><!-- end section-dashboard -->
+
+      <!-- ── Parameter Operations Section ─────────────────────────── -->
+      <div id="section-parameters" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-sliders-h"></i> Parameter Operations</h2>
+          <p>Get and set device parameters over USP/MQTT</p>
         </div>
-        {% endif %}
-        
-        <!-- Main Content Grid -->
-        <main class="main-content">
-            <!-- Enhanced Parameter Operations with Custom Input -->
+
+        <!-- Enhanced Parameter Operations with Custom Input -->
             <section class="panel" id="parameter-panel">
                 <div class="panel-title">
                     <span><i class="fas fa-sliders-h"></i> Parameter Operations</span>
@@ -651,7 +725,62 @@
                 </div>
                 {% endif %}
             </section>
-            
+
+            <!-- Enhanced Data Model Browser -->
+            <section class="panel full-width" id="data-model-panel">
+                <div class="panel-title">
+                    <span><i class="fas fa-sitemap"></i> Data Model Browser</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-sm btn-primary" onclick="expandAllNodes()">
+                            <i class="fas fa-expand"></i> Expand All
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="collapseAllNodes()">
+                            <i class="fas fa-compress"></i> Collapse All
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="searchDataModel()">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+
+                {% if data_model %}
+                <div class="data-model-header">
+                    <div class="model-stats">
+                        <span class="stat"><i class="fas fa-database"></i> {{ data_model_count }} Parameters</span>
+                        <span class="stat"><i class="fas fa-sitemap"></i> {{ data_model|length }} Top-level Objects</span>
+                    </div>
+                    <div class="model-search">
+                        <input type="text" id="model-search" placeholder="Search parameters..." class="form-control">
+                        <button class="btn-clear-search" onclick="clearSearch()" title="Clear search">✕</button>
+                        <span class="search-result-count" id="search-result-count"></span>
+                    </div>
+                </div>
+
+                <div class="category-chips" id="category-chips"></div>
+
+                <div class="data-model-tree" id="data-model-tree">
+                    {{ render_data_model(data_model) | safe }}
+                </div>
+                {% else %}
+                <div class="empty-state-large">
+                    <i class="fas fa-sitemap"></i>
+                    <h3>No Data Model Available</h3>
+                    <p>Click "Discover" to scan and build the device data model.</p>
+                    <a href="/discover" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Start Discovery
+                    </a>
+                </div>
+                {% endif %}
+            </section>
+      </div><!-- end section-parameters -->
+
+      <!-- ── DAC Applications Section ─────────────────────────────── -->
+      <div id="section-dac" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-cubes"></i> DAC Applications</h2>
+          <p>Install and manage DAC containerized applications</p>
+        </div>
+
             <!-- Enhanced DAC Application Management -->
             <section class="panel" id="dac-panel">
                 <div class="panel-title">
@@ -728,7 +857,15 @@
                     </div>
                 </form>
             </section>
-            
+      </div><!-- end section-dac -->
+
+      <!-- ── Software Modules Section ─────────────────────────────── -->
+      <div id="section-modules" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-server"></i> Software Modules</h2>
+          <p>Manage execution environments, deployment units, and execution units</p>
+        </div>
+
             <!-- Enhanced Software Modules Dashboard (SINGLE INSTANCE ONLY) -->
             <section class="panel full-width" id="software-modules-panel">
                 <div class="panel-title">
@@ -971,6 +1108,14 @@
                 </div>
                 {% endif %}
             </section>
+      </div><!-- end section-modules -->
+
+      <!-- ── IoT Devices Section ───────────────────────────────────── -->
+      <div id="section-iot" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-microchip"></i> IoT Devices</h2>
+          <p>Monitor and control connected IoT devices</p>
+        </div>
 
             <!-- ============================================================ -->
             <!-- IoT Device Management Panel                                   -->
@@ -1083,6 +1228,14 @@
                 <!-- E. Last Operation Result -->
                 <pre class="iot-last-result" id="iot-last-result">— no operation yet —</pre>
             </section>
+      </div><!-- end section-iot -->
+
+      <!-- ── USP Events Section ────────────────────────────────────── -->
+      <div id="section-events" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-bell"></i> USP Events</h2>
+          <p>Live event stream from connected device via SSE</p>
+        </div>
 
             <!-- ============================================================ -->
             <!-- USP Events Panel                                              -->
@@ -1213,89 +1366,10 @@
                     </table>
                 </div>
             </section>
+      </div><!-- end section-events -->
 
-            <!-- Enhanced Data Model Browser -->
-            <section class="panel full-width" id="data-model-panel">
-                <div class="panel-title">
-                    <span><i class="fas fa-sitemap"></i> Data Model Browser</span>
-                    <div class="panel-actions">
-                        <button class="btn btn-sm btn-primary" onclick="expandAllNodes()">
-                            <i class="fas fa-expand"></i> Expand All
-                        </button>
-                        <button class="btn btn-sm btn-primary" onclick="collapseAllNodes()">
-                            <i class="fas fa-compress"></i> Collapse All
-                        </button>
-                        <button class="btn btn-sm btn-info" onclick="searchDataModel()">
-                            <i class="fas fa-search"></i> Search
-                        </button>
-                    </div>
-                </div>
-                
-                {% if data_model %}
-                <div class="data-model-header">
-                    <div class="model-stats">
-                        <span class="stat"><i class="fas fa-database"></i> {{ data_model_count }} Parameters</span>
-                        <span class="stat"><i class="fas fa-sitemap"></i> {{ data_model|length }} Top-level Objects</span>
-                    </div>
-                    <div class="model-search">
-                        <input type="text" id="model-search" placeholder="Search parameters..." class="form-control">
-                        <button class="btn-clear-search" onclick="clearSearch()" title="Clear search">✕</button>
-                        <span class="search-result-count" id="search-result-count"></span>
-                    </div>
-                </div>
-                
-                <div class="category-chips" id="category-chips"></div>
-                
-                <div class="data-model-tree" id="data-model-tree">
-                    {{ render_data_model(data_model) | safe }}
-                </div>
-                {% else %}
-                <div class="empty-state-large">
-                    <i class="fas fa-sitemap"></i>
-                    <h3>No Data Model Available</h3>
-                    <p>Click "Discover" in the header to scan and build the device data model.</p>
-                    <a href="/discover" class="btn btn-primary">
-                        <i class="fas fa-search"></i> Start Discovery
-                    </a>
-                </div>
-                {% endif %}
-            </section>
-            
-            <!-- Enhanced System Logs -->
-            <section class="panel full-width" id="logs-panel">
-                <div class="panel-title">
-                    <span><i class="fas fa-terminal"></i> System Logs</span>
-                    <div class="panel-actions">
-                        <button class="btn btn-sm btn-primary" onclick="refreshLogs()">
-                            <i class="fas fa-sync"></i> Refresh
-                        </button>
-                        <button class="btn btn-sm btn-warning" onclick="clearLogs()">
-                            <i class="fas fa-trash"></i> Clear
-                        </button>
-                        <button class="btn btn-sm btn-info" onclick="downloadLogs()">
-                            <i class="fas fa-download"></i> Download
-                        </button>
-                        <button class="btn btn-sm btn-primary" onclick="toggleAutoScroll()">
-                            <i class="fas fa-arrows-alt-v"></i> Auto Scroll
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="logs-container">
-                    <div class="logs" id="system-logs">
-                        {% for log in logs %}
-                        <div class="log-entry">{{ log }}</div>
-                        {% endfor %}
-                        {% if not logs %}
-                        <div class="log-entry">
-                            <span class="text-muted">No logs available. System logs will appear here.</span>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
+    </main><!-- end content-area -->
+  </div><!-- end app-layout -->
     
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay" style="display: none;">
