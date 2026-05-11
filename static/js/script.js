@@ -17,6 +17,56 @@
  * limitations under the License.
  */
 
+// ── Sidebar Navigation ──────────────────────────────────────────────────────
+const VALID_SECTIONS = [
+  'section-dashboard', 'section-parameters', 'section-dac',
+  'section-modules', 'section-iot', 'section-events'
+];
+
+function showSection(id) {
+  if (!VALID_SECTIONS.includes(id)) return;
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('section-active'));
+  const target = document.getElementById(id);
+  if (target) target.classList.add('section-active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const escapedId = id; // id is already validated against VALID_SECTIONS allowlist
+  const link = document.querySelector('.nav-item[data-section="' + escapedId + '"]');
+  if (link) link.classList.add('active');
+  localStorage.setItem('activeSection', id);
+}
+
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const contentArea = document.querySelector('.content-area');
+  if (!sidebar || !contentArea) return;
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    sidebar.classList.toggle('mobile-open');
+  } else {
+    sidebar.classList.toggle('collapsed');
+    contentArea.classList.toggle('sidebar-collapsed');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const saved = localStorage.getItem('activeSection');
+  const initial = (saved && VALID_SECTIONS.includes(saved)) ? saved : 'section-dashboard';
+  showSection(initial);
+
+  // Keyboard support for nav items
+  document.querySelectorAll('.nav-item').forEach(function(item) {
+    item.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const sectionId = item.getAttribute('data-section');
+        if (sectionId) showSection(sectionId);
+      }
+    });
+  });
+});
+
+// ── End Sidebar Navigation ───────────────────────────────────────────────────
+
 // Global state management
 const USPController = {
     state: {
