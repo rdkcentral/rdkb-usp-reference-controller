@@ -2732,6 +2732,611 @@ _iot_poll_thread.start()
 logger.info("IoT resource poll thread started (5s interval, using Query)")
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1. WiFi Management Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/wifi/status')
+def api_wifi_status():
+    """Return WiFi radio and SSID status (mock data)."""
+    return jsonify({
+        'success': True,
+        'radios': {
+            '2g': {'enabled': True, 'channel': '6', 'bandwidth': '20 MHz', 'tx_power': '20 dBm'},
+            '5g': {'enabled': True, 'channel': '36', 'bandwidth': '80 MHz', 'tx_power': '23 dBm'},
+            '6g': {'enabled': False, 'channel': '37', 'bandwidth': '160 MHz', 'tx_power': '23 dBm'},
+        },
+        'ssids': [
+            {'ssid': 'HomeNetwork_2G', 'band': '2.4GHz', 'security': 'WPA2-Personal', 'enabled': True, 'clients': 3, 'password': '', 'channel': '6', 'max_clients': 32},
+            {'ssid': 'HomeNetwork_5G', 'band': '5GHz', 'security': 'WPA3-Personal', 'enabled': True, 'clients': 2, 'password': '', 'channel': '36', 'max_clients': 32},
+            {'ssid': 'Guest_WiFi', 'band': '2.4GHz', 'security': 'WPA2-Personal', 'enabled': False, 'clients': 0, 'password': '', 'channel': 'Auto', 'max_clients': 10},
+        ],
+        'stats': [
+            {'radio': '2.4 GHz', 'tx_bytes': '1.2 GB', 'rx_bytes': '850 MB', 'errors': 12, 'utilization': 35},
+            {'radio': '5 GHz', 'tx_bytes': '4.8 GB', 'rx_bytes': '2.1 GB', 'errors': 3, 'utilization': 22},
+        ]
+    })
+
+@app.route('/api/wifi/scan')
+def api_wifi_scan():
+    """Return nearby WiFi networks (mock)."""
+    return jsonify({
+        'success': True,
+        'results': [
+            {'ssid': 'Neighbor_Net', 'bssid': 'AA:BB:CC:DD:EE:01', 'signal': -65, 'band': '2.4GHz', 'security': 'WPA2'},
+            {'ssid': 'CoffeeShop_Free', 'bssid': 'AA:BB:CC:DD:EE:02', 'signal': -78, 'band': '2.4GHz', 'security': 'Open'},
+            {'ssid': 'Office_5G', 'bssid': 'AA:BB:CC:DD:EE:03', 'signal': -55, 'band': '5GHz', 'security': 'WPA3'},
+            {'ssid': 'FiberHome_A1B2', 'bssid': 'AA:BB:CC:DD:EE:04', 'signal': -72, 'band': '2.4GHz', 'security': 'WPA2'},
+        ]
+    })
+
+@app.route('/api/wifi/set_ssid', methods=['POST'])
+def api_wifi_set_ssid():
+    """Update SSID configuration (mock)."""
+    data = request.get_json() or {}
+    controller.log(f"WiFi SSID update: {data}")
+    return jsonify({'success': True, 'message': 'SSID configuration updated'})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2. Connected Devices Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/devices')
+def api_devices():
+    """Return list of connected devices (TR-181 mock)."""
+    devices = [
+        {'hostname': 'living-room-tv', 'ip': '192.168.1.101', 'mac': 'AA:BB:CC:11:22:33',
+         'connection_type': 'WiFi', 'ssid': 'HomeNetwork_5G', 'signal': -55, 'status': 'Active',
+         'last_seen': '2 min ago', 'vendor': 'Samsung Electronics', 'lease_time': '23:45:00',
+         'tx_rate': 300, 'rx_rate': 150, 'rssi': -55, 'blocked': False},
+        {'hostname': 'desktop-pc', 'ip': '192.168.1.102', 'mac': 'AA:BB:CC:11:22:34',
+         'connection_type': 'Wired', 'ssid': '', 'signal': None, 'status': 'Active',
+         'last_seen': '1 min ago', 'vendor': 'Intel Corporation', 'lease_time': '23:30:00',
+         'tx_rate': 1000, 'rx_rate': 1000, 'rssi': None, 'blocked': False},
+        {'hostname': 'iphone-user1', 'ip': '192.168.1.103', 'mac': 'AA:BB:CC:11:22:35',
+         'connection_type': 'WiFi', 'ssid': 'HomeNetwork_2G', 'signal': -70, 'status': 'Active',
+         'last_seen': '5 min ago', 'vendor': 'Apple Inc.', 'lease_time': '22:10:00',
+         'tx_rate': 54, 'rx_rate': 36, 'rssi': -70, 'blocked': False},
+        {'hostname': 'smart-thermostat', 'ip': '192.168.1.104', 'mac': 'AA:BB:CC:11:22:36',
+         'connection_type': 'WiFi', 'ssid': 'HomeNetwork_2G', 'signal': -80, 'status': 'Inactive',
+         'last_seen': '2 hours ago', 'vendor': 'Nest Labs', 'lease_time': 'Expired',
+         'tx_rate': 11, 'rx_rate': 5, 'rssi': -80, 'blocked': False},
+        {'hostname': 'network-printer', 'ip': '192.168.1.105', 'mac': 'AA:BB:CC:11:22:37',
+         'connection_type': 'Wired', 'ssid': '', 'signal': None, 'status': 'Active',
+         'last_seen': '10 min ago', 'vendor': 'HP Inc.', 'lease_time': '20:00:00',
+         'tx_rate': 100, 'rx_rate': 100, 'rssi': None, 'blocked': False},
+    ]
+    return jsonify({'success': True, 'devices': devices})
+
+@app.route('/api/devices/block', methods=['POST'])
+def api_devices_block():
+    """Block or unblock a device (mock)."""
+    data = request.get_json() or {}
+    mac = data.get('mac', '')
+    block = data.get('block', True)
+    controller.log(f"Device {'block' if block else 'unblock'}: {mac}")
+    return jsonify({'success': True, 'mac': mac, 'blocked': block})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3. Diagnostics Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/diagnostics/ping', methods=['POST'])
+def api_diagnostics_ping():
+    """Run ping test using subprocess, fall back to mock."""
+    data = request.get_json() or {}
+    host = data.get('host', '8.8.8.8').strip()
+    count = max(1, min(100, int(data.get('count', 4))))
+    # Validate host: allow hostname and IP characters only
+    if not re.match(r'^[a-zA-Z0-9.\-]+$', host):
+        return jsonify({'success': False, 'error': 'Invalid host'})
+    try:
+        result = subprocess.run(
+            ['ping', '-c', str(count), host],
+            capture_output=True, text=True, timeout=30
+        )
+        output = result.stdout
+        # Parse results
+        rtt_match = re.search(r'rtt min/avg/max/mdev = ([\d.]+)/([\d.]+)/([\d.]+)', output)
+        loss_match = re.search(r'(\d+)% packet loss', output)
+        if rtt_match and loss_match:
+            return jsonify({
+                'success': True,
+                'min_rtt': rtt_match.group(1),
+                'avg_rtt': rtt_match.group(2),
+                'max_rtt': rtt_match.group(3),
+                'packet_loss': loss_match.group(1)
+            })
+    except Exception:
+        pass
+    # Mock fallback
+    import random
+    base = random.uniform(10, 50)
+    return jsonify({'success': True, 'min_rtt': f'{base:.1f}', 'avg_rtt': f'{base*1.1:.1f}',
+                    'max_rtt': f'{base*1.3:.1f}', 'packet_loss': 0})
+
+@app.route('/api/diagnostics/traceroute', methods=['POST'])
+def api_diagnostics_traceroute():
+    """Run traceroute (mock fallback)."""
+    data = request.get_json() or {}
+    host = data.get('host', '8.8.8.8').strip()
+    max_hops = max(1, min(64, int(data.get('max_hops', 30))))
+    if not re.match(r'^[a-zA-Z0-9.\-]+$', host):
+        return jsonify({'success': False, 'error': 'Invalid host'})
+    try:
+        result = subprocess.run(
+            ['traceroute', '-m', str(max_hops), '-n', host],
+            capture_output=True, text=True, timeout=60
+        )
+        hops = []
+        for line in result.stdout.split('\n')[1:]:
+            parts = line.split()
+            if not parts or not parts[0].isdigit():
+                continue
+            hop_num = parts[0]
+            ips = [p for p in parts[1:] if re.match(r'\d+\.\d+\.\d+\.\d+', p)]
+            rtts = [p for p in parts[1:] if re.match(r'[\d.]+', p) and p not in ips]
+            ip = ips[0] if ips else '*'
+            hops.append({'hop': hop_num, 'hostname': ip, 'ip': ip,
+                          'rtt1': rtts[0] + ' ms' if len(rtts) > 0 else '*',
+                          'rtt2': rtts[1] + ' ms' if len(rtts) > 1 else '*',
+                          'rtt3': rtts[2] + ' ms' if len(rtts) > 2 else '*'})
+        if hops:
+            return jsonify({'success': True, 'hops': hops})
+    except Exception:
+        pass
+    # Mock fallback
+    import random
+    hops = []
+    for i in range(1, 8):
+        rtt = random.uniform(1, 50) * i
+        ip = f'10.0.{i}.1'
+        hops.append({'hop': i, 'hostname': ip, 'ip': ip,
+                     'rtt1': f'{rtt:.1f} ms', 'rtt2': f'{rtt*1.05:.1f} ms', 'rtt3': f'{rtt*1.1:.1f} ms'})
+    hops.append({'hop': 8, 'hostname': '8.8.8.8', 'ip': '8.8.8.8',
+                 'rtt1': '15.2 ms', 'rtt2': '14.9 ms', 'rtt3': '15.5 ms'})
+    return jsonify({'success': True, 'hops': hops})
+
+@app.route('/api/diagnostics/dns', methods=['POST'])
+def api_diagnostics_dns():
+    """Run DNS lookup (mock)."""
+    data = request.get_json() or {}
+    domain = data.get('domain', '').strip()
+    if not domain or not re.match(r'^[a-zA-Z0-9.\-]+$', domain):
+        return jsonify({'success': False, 'error': 'Invalid domain'})
+    # Mock response
+    return jsonify({
+        'success': True,
+        'a': ['93.184.216.34'],
+        'aaaa': ['2606:2800:220:1:248:1893:25c8:1946'],
+        'mx': ['mail.example.com (priority 10)']
+    })
+
+@app.route('/api/diagnostics/speedtest', methods=['POST'])
+def api_diagnostics_speedtest():
+    """Speed test (mock)."""
+    import random
+    import time
+    data = request.get_json() or {}
+    test_type = data.get('type', 'download')
+    time.sleep(1)  # Simulate test
+    speed = random.uniform(50, 500) if test_type == 'download' else random.uniform(20, 100)
+    latency = random.uniform(5, 50)
+    return jsonify({'success': True, 'speed': f'{speed:.1f}', 'latency': f'{latency:.1f}', 'type': test_type})
+
+@app.route('/api/diagnostics/health')
+def api_diagnostics_health():
+    """Network health check (mock)."""
+    return jsonify({
+        'success': True,
+        'checks': [
+            {'name': 'WAN Connectivity', 'status': 'ok'},
+            {'name': 'DNS Resolution', 'status': 'ok'},
+            {'name': 'Gateway Reachability', 'status': 'ok'},
+            {'name': 'Internet Reachability', 'status': 'ok'},
+        ]
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 4. Location Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+_location_data = {
+    'location': {'street': '1 Infinite Loop', 'city': 'Cupertino', 'country': 'US',
+                 'latitude': '37.3318', 'longitude': '-122.0312', 'postal_code': '95014'},
+    'timezone': 'America/Los_Angeles',
+    'ntp': ['pool.ntp.org', 'time.google.com'],
+    'locale': 'en_US',
+    'isp': {'name': 'ExampleISP', 'asn': 'AS15169', 'region': 'California'}
+}
+
+@app.route('/api/location/get')
+def api_location_get():
+    return jsonify({'success': True, **_location_data})
+
+@app.route('/api/location/set', methods=['POST'])
+def api_location_set():
+    data = request.get_json() or {}
+    allowed_keys = {'street', 'city', 'country', 'latitude', 'longitude', 'postal_code'}
+    for k in allowed_keys:
+        if k in data:
+            _location_data['location'][k] = str(data[k])
+    controller.log(f"Location updated: {_location_data['location']}")
+    return jsonify({'success': True})
+
+@app.route('/api/location/timezone', methods=['POST'])
+def api_location_timezone():
+    data = request.get_json() or {}
+    if 'timezone' in data:
+        _location_data['timezone'] = str(data['timezone'])
+    if 'ntp' in data and isinstance(data['ntp'], list):
+        _location_data['ntp'] = [str(x) for x in data['ntp'][:2]]
+    if 'locale' in data:
+        _location_data['locale'] = str(data['locale'])
+    controller.log(f"Timezone updated: {_location_data['timezone']}")
+    return jsonify({'success': True})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. AI Assistant Route
+# ═══════════════════════════════════════════════════════════════════════════════
+def _ai_rule_based_response(message: str, context: dict) -> str:
+    """Rule-based AI responses about RDK-B device state."""
+    msg = message.lower()
+
+    if any(w in msg for w in ['wifi', 'wireless', 'ssid', '2.4', '5ghz', '6ghz']):
+        return ("📶 **WiFi Status**: Your device has 3 radios configured (2.4 GHz, 5 GHz, 6 GHz). "
+                "2.4 GHz and 5 GHz are currently enabled. "
+                "3 SSIDs are configured: HomeNetwork_2G, HomeNetwork_5G, and Guest_WiFi (disabled). "
+                "Total connected WiFi clients: 5. \n\n"
+                "Tip: Use the **WiFi** section to manage radios and SSIDs.")
+
+    if any(w in msg for w in ['connected device', 'client', 'host', 'lan', 'device']):
+        return ("💻 **Connected Devices**: 5 devices are registered in the network:\n"
+                "- 3 WiFi clients (living-room-tv, iphone-user1, smart-thermostat)\n"
+                "- 2 Wired clients (desktop-pc, network-printer)\n"
+                "- 4 currently active\n\n"
+                "Use the **Connected Devices** section for details and management.")
+
+    if any(w in msg for w in ['ping', 'traceroute', 'dns', 'speed', 'diagnostic', 'network issue']):
+        return ("🔧 **Diagnostics**: I can help run network tests!\n"
+                "- **Ping**: Test reachability (e.g., ping 8.8.8.8)\n"
+                "- **Traceroute**: Trace the path to a host\n"
+                "- **DNS Lookup**: Resolve domain names\n"
+                "- **Speed Test**: Measure download/upload speeds\n\n"
+                "Navigate to the **Diagnostics** section to run these tests.")
+
+    if any(w in msg for w in ['usp event', 'event', 'notification']):
+        return ("🔔 **USP Events**: Events are captured in real-time from the USP agent. "
+                f"Check the **USP Events** section for a live feed of device notifications. "
+                "Common event types: WiFi, IoT, DAC, System, and Network events.")
+
+    if any(w in msg for w in ['health', 'status', 'summary', 'device health']):
+        connected = context.get('connected', False)
+        data_count = context.get('data_model_count', 0)
+        return (f"❤️ **Device Health Summary**:\n"
+                f"- Controller Status: {'🟢 Connected' if connected else '🔴 Disconnected'}\n"
+                f"- Data Model Parameters: {data_count}\n"
+                f"- WiFi Radios: 2/3 active\n"
+                f"- Connected Clients: 5\n"
+                f"- WAN Status: Online\n"
+                f"- Last Refresh: Just now\n\n"
+                f"Overall health: **Good** ✅")
+
+    if any(w in msg for w in ['parameter', 'data model', 'tr-181', 'tr181']):
+        return ("📊 **TR-181 Data Model**: The device exposes a rich set of parameters via USP protocol. "
+                "Use the **Parameters** section to get/set specific TR-181 parameters. "
+                "Common paths:\n"
+                "- `Device.WiFi.Radio.{i}.` — Radio configuration\n"
+                "- `Device.Hosts.Host.{i}.` — Connected hosts\n"
+                "- `Device.IP.Interface.{i}.` — IP interfaces\n"
+                "- `Device.SoftwareModules.` — Installed modules")
+
+    if any(w in msg for w in ['reboot', 'restart', 'factory reset']):
+        return ("⚠️ **Reboot / Reset**: You can reboot or factory reset the device using the **Mass Actions** section. "
+                "This supports single and multi-CPE operations. "
+                "Please ensure you have saved all configurations before proceeding.")
+
+    if any(w in msg for w in ['hello', 'hi', 'hey', 'help']):
+        return ("👋 Hello! I'm your RDK-B AI assistant. I can help you with:\n"
+                "- 📶 WiFi status and configuration\n"
+                "- 💻 Connected device management\n"
+                "- 🔧 Network diagnostics (ping, traceroute, DNS, speed test)\n"
+                "- 📊 USP/TR-181 data model queries\n"
+                "- 🔔 USP event explanations\n"
+                "- ❤️ Device health summaries\n\n"
+                "Just ask me anything about your device!")
+
+    return (f"🤖 I received your query: *\"{message}\"*\n\n"
+            "I can assist with WiFi management, connected devices, diagnostics, "
+            "USP events, and device parameters. Could you be more specific?\n\n"
+            "Try asking: 'Explain WiFi status', 'Show connected devices summary', "
+            "or 'Diagnose network issues'.")
+
+@app.route('/api/ai/chat', methods=['POST'])
+def api_ai_chat():
+    """AI chat endpoint with rule-based responses."""
+    data = request.get_json() or {}
+    message = str(data.get('message', '')).strip()
+    context = data.get('context', {})
+    if not message:
+        return jsonify({'success': False, 'error': 'Empty message'})
+    # Try OpenAI if API key is configured
+    openai_key = os.environ.get('OPENAI_API_KEY', '')
+    if openai_key:
+        try:
+            import urllib.request
+            system_prompt = ("You are an expert AI assistant for RDK-B USP Controller. "
+                             "Help users manage their device's WiFi, connected clients, diagnostics, "
+                             "TR-181 parameters, and USP events. Be concise and helpful.")
+            req_data = json.dumps({
+                'model': 'gpt-3.5-turbo',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': message}
+                ],
+                'max_tokens': 400
+            }).encode()
+            req = urllib.request.Request(
+                'https://api.openai.com/v1/chat/completions',
+                data=req_data,
+                headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {openai_key}'}
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read())
+                response = result['choices'][0]['message']['content']
+                return jsonify({'success': True, 'response': response, 'source': 'openai'})
+        except Exception as e:
+            logger.warning(f"OpenAI API error: {e}")
+    # Rule-based fallback
+    response = _ai_rule_based_response(message, context)
+    return jsonify({'success': True, 'response': response, 'source': 'rule-based'})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. RBAC Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+_rbac_users = {
+    'admin': {'password': 'admin', 'role': 'Admin', 'active': True, 'last_login': '2024-01-15 10:30'},
+    'operator': {'password': 'operator', 'role': 'Operator', 'active': True, 'last_login': '2024-01-14 08:15'},
+    'viewer': {'password': 'viewer', 'role': 'Viewer', 'active': True, 'last_login': '2024-01-13 14:00'},
+}
+_rbac_active_sessions = [
+    {'id': 'sess-001', 'username': 'admin', 'ip': '127.0.0.1', 'login_time': '2024-01-15 10:30'}
+]
+
+@app.route('/api/rbac/users', methods=['GET', 'POST'])
+def api_rbac_users():
+    if request.method == 'GET':
+        users = [{'username': k, 'role': v['role'], 'active': v['active'],
+                  'last_login': v['last_login']} for k, v in _rbac_users.items()]
+        return jsonify({'success': True, 'users': users})
+    data = request.get_json() or {}
+    action = data.get('action', '')
+    username = data.get('username', '').strip()
+    if not username:
+        return jsonify({'success': False, 'error': 'Username required'})
+    if action == 'add':
+        if username in _rbac_users:
+            return jsonify({'success': False, 'error': 'User already exists'})
+        role = data.get('role', 'Viewer')
+        if role not in ('Admin', 'Operator', 'Viewer'):
+            role = 'Viewer'
+        _rbac_users[username] = {'password': data.get('password', ''), 'role': role,
+                                  'active': True, 'last_login': 'Never'}
+        return jsonify({'success': True})
+    if action == 'set_role':
+        if username not in _rbac_users:
+            return jsonify({'success': False, 'error': 'User not found'})
+        role = data.get('role', 'Viewer')
+        if role not in ('Admin', 'Operator', 'Viewer'):
+            return jsonify({'success': False, 'error': 'Invalid role'})
+        _rbac_users[username]['role'] = role
+        return jsonify({'success': True})
+    if action == 'toggle':
+        if username not in _rbac_users:
+            return jsonify({'success': False, 'error': 'User not found'})
+        _rbac_users[username]['active'] = bool(data.get('active', True))
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Unknown action'})
+
+@app.route('/api/rbac/roles')
+def api_rbac_roles():
+    return jsonify({
+        'success': True,
+        'roles': [
+            {'name': 'Admin', 'description': 'Full access', 'permissions': ['all']},
+            {'name': 'Operator', 'description': 'Operational access', 'permissions': ['wifi', 'devices', 'diagnostics', 'parameters_read']},
+            {'name': 'Viewer', 'description': 'Read-only access', 'permissions': ['dashboard', 'parameters_read', 'events']},
+        ]
+    })
+
+@app.route('/api/rbac/session', methods=['GET', 'POST'])
+def api_rbac_session():
+    if request.method == 'GET':
+        return jsonify({
+            'success': True,
+            'session': {
+                'username': 'admin', 'role': 'Admin',
+                'start': '2024-01-15 10:30:00',
+                'permissions': ['Dashboard', 'WiFi', 'Devices', 'Diagnostics', 'Parameters', 'Mass Actions', 'RBAC', 'Multi-CPE']
+            },
+            'sessions': _rbac_active_sessions
+        })
+    data = request.get_json() or {}
+    if data.get('action') == 'revoke':
+        sess_id = data.get('id', '')
+        _rbac_active_sessions[:] = [s for s in _rbac_active_sessions if s['id'] != sess_id]
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Unknown action'})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. Mass Actions Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+_mass_jobs: dict = {}
+
+def _mass_action_worker(job_id: str, job: dict):
+    """Background worker that simulates mass action execution."""
+    import time as _time
+    import random as _random
+    cpes = job.get('cpes', [])
+    total = max(1, len(cpes))
+    job['status'] = 'running'
+    job['started'] = time.strftime('%Y-%m-%d %H:%M:%S')
+    success_count = 0
+    fail_count = 0
+    for i, cpe in enumerate(cpes):
+        _time.sleep(0.5)
+        if _random.random() > 0.1:
+            success_count += 1
+        else:
+            fail_count += 1
+        job['progress'] = int((i + 1) / total * 100)
+        job['success_count'] = success_count
+        job['fail_count'] = fail_count
+    job['status'] = 'completed'
+    job['completed'] = time.strftime('%Y-%m-%d %H:%M:%S')
+    job['progress'] = 100
+
+@app.route('/api/mass_actions/submit', methods=['POST'])
+def api_mass_actions_submit():
+    data = request.get_json() or {}
+    job_id = str(uuid.uuid4())[:8]
+    job = {
+        'job_id': job_id,
+        'type': data.get('type', 'batch_set'),
+        'cpes': data.get('cpes', []),
+        'params': data.get('params', []),
+        'status': 'queued',
+        'progress': 0,
+        'success_count': 0,
+        'fail_count': 0,
+        'started': None,
+        'completed': None
+    }
+    _mass_jobs[job_id] = job
+    t = threading.Thread(target=_mass_action_worker, args=(job_id, job), daemon=True)
+    t.start()
+    return jsonify({'success': True, 'job_id': job_id})
+
+@app.route('/api/mass_actions/status/<job_id>')
+def api_mass_actions_status(job_id):
+    job = _mass_jobs.get(job_id)
+    if not job:
+        return jsonify({'success': False, 'error': 'Job not found'})
+    return jsonify({'success': True, **job})
+
+@app.route('/api/mass_actions/history')
+def api_mass_actions_history():
+    return jsonify({'success': True, 'history': list(_mass_jobs.values())})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. Multi-CPE Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+_CPE_REGISTRY_FILE = os.path.join(os.path.dirname(__file__), 'cpe_registry.json')
+
+def _load_cpe_registry() -> list:
+    if os.path.exists(_CPE_REGISTRY_FILE):
+        try:
+            with open(_CPE_REGISTRY_FILE, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return [
+        {'id': 'cpe-001', 'serial': 'RDK-001234', 'model': 'RDK-B Gateway', 'firmware': '5.4.0.0',
+         'ip': '10.2.175.86', 'agent_id': 'proto::rx_usp_agent_mqtt', 'status': 'Online',
+         'last_seen': 'Just now', 'friendly_name': 'Lab Gateway', 'tags': ['lab']},
+        {'id': 'cpe-002', 'serial': 'RDK-005678', 'model': 'RDK-B Access Point', 'firmware': '5.3.1.0',
+         'ip': '10.2.175.87', 'agent_id': 'proto::rx_usp_agent_mqtt_2', 'status': 'Offline',
+         'last_seen': '5 min ago', 'friendly_name': 'Office AP', 'tags': ['office']},
+    ]
+
+def _save_cpe_registry(cpes: list):
+    try:
+        with open(_CPE_REGISTRY_FILE, 'w') as f:
+            json.dump(cpes, f, indent=2)
+    except Exception as e:
+        logger.warning(f"CPE registry save error: {e}")
+
+@app.route('/api/cpes')
+def api_cpes_list():
+    return jsonify({'success': True, 'cpes': _load_cpe_registry()})
+
+@app.route('/api/cpes/add', methods=['POST'])
+def api_cpes_add():
+    data = request.get_json() or {}
+    serial = data.get('serial', '').strip()
+    broker = data.get('broker', '').strip()
+    if not serial or not broker:
+        return jsonify({'success': False, 'error': 'Serial and broker required'})
+    cpes = _load_cpe_registry()
+    new_id = 'cpe-' + str(uuid.uuid4())[:6]
+    cpe = {
+        'id': new_id,
+        'serial': serial,
+        'model': 'RDK-B Device',
+        'firmware': 'Unknown',
+        'ip': broker,
+        'agent_id': data.get('agent_id', ''),
+        'status': 'Unknown',
+        'last_seen': 'Never',
+        'friendly_name': data.get('friendly_name', serial),
+        'tags': data.get('tags', []),
+        'broker': broker,
+        'port': int(data.get('port', 1883))
+    }
+    cpes.append(cpe)
+    _save_cpe_registry(cpes)
+    controller.log(f"CPE added: {new_id} ({serial})")
+    return jsonify({'success': True, 'id': new_id})
+
+@app.route('/api/cpes/remove/<cpe_id>', methods=['DELETE'])
+def api_cpes_remove(cpe_id):
+    cpes = _load_cpe_registry()
+    original_len = len(cpes)
+    cpes = [c for c in cpes if c['id'] != cpe_id]
+    if len(cpes) == original_len:
+        return jsonify({'success': False, 'error': 'CPE not found'})
+    _save_cpe_registry(cpes)
+    controller.log(f"CPE removed: {cpe_id}")
+    return jsonify({'success': True})
+
+@app.route('/api/cpes/connect/<cpe_id>', methods=['POST'])
+def api_cpes_connect(cpe_id):
+    cpes = _load_cpe_registry()
+    cpe = next((c for c in cpes if c['id'] == cpe_id), None)
+    if not cpe:
+        return jsonify({'success': False, 'error': 'CPE not found'})
+    # Update active CPE connection
+    controller.config['broker'] = cpe.get('ip', controller.config['broker'])
+    controller.config['broker_port'] = str(cpe.get('port', controller.config['broker_port']))
+    controller.config['to_id'] = cpe.get('agent_id', controller.config['to_id'])
+    controller.log(f"Switched active CPE to: {cpe_id} ({cpe.get('friendly_name', cpe['serial'])})")
+    return jsonify({'success': True, 'id': cpe_id, 'name': cpe.get('friendly_name', cpe['serial'])})
+
+@app.route('/api/cpes/compare', methods=['POST'])
+def api_cpes_compare():
+    data = request.get_json() or {}
+    ids = data.get('ids', [])
+    cpes = _load_cpe_registry()
+    selected = [c for c in cpes if c['id'] in ids]
+    if len(selected) < 2:
+        return jsonify({'success': False, 'error': 'Select at least 2 CPEs'})
+    params = [
+        {'param': 'Serial Number', 'values': {c['id']: c['serial'] for c in selected}},
+        {'param': 'Model', 'values': {c['id']: c['model'] for c in selected}},
+        {'param': 'Firmware', 'values': {c['id']: c['firmware'] for c in selected}},
+        {'param': 'IP Address', 'values': {c['id']: c['ip'] for c in selected}},
+        {'param': 'Status', 'values': {c['id']: c['status'] for c in selected}},
+    ]
+    return jsonify({
+        'success': True,
+        'cpes': [{'id': c['id'], 'name': c.get('friendly_name', c['serial'])} for c in selected],
+        'params': params
+    })
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("🚀 Starting Enhanced Flask USP Controller with Large Data Model Support")

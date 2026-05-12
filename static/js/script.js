@@ -20,7 +20,10 @@
 // ── Sidebar Navigation ──────────────────────────────────────────────────────
 const VALID_SECTIONS = [
   'section-dashboard', 'section-parameters', 'section-dac',
-  'section-modules', 'section-iot', 'section-events'
+  'section-modules', 'section-iot', 'section-events',
+  'section-wifi', 'section-devices', 'section-diagnostics',
+  'section-location', 'section-ai', 'section-rbac',
+  'section-mass-actions', 'section-cpe'
 ];
 
 function showSection(id) {
@@ -1262,3 +1265,885 @@ window.expandLargeModel = expandLargeModel;
 window.filterByCategory = filterByCategory;
 
 console.log('🎯 Enhanced USP Controller JavaScript loaded successfully');
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. WiFi Management
+// ══════════════════════════════════════════════════════════════════════════════
+async function wifiLoadStatus() {
+    try {
+        const r = await fetch('/api/wifi/status');
+        const d = await r.json();
+        if (!d.success) return;
+        // Render radio cards
+        ['2g','5g','6g'].forEach(band => {
+            const radio = d.radios ? d.radios[band] : null;
+            const card = document.getElementById('wifi-radio-' + band);
+            if (!card || !radio) return;
+            card.querySelector('.wifi-radio-channel').textContent = radio.channel || '—';
+            card.querySelector('.wifi-radio-bw').textContent = radio.bandwidth || '—';
+            card.querySelector('.wifi-radio-txpower').textContent = radio.tx_power || '—';
+            const tog = card.querySelector('.wifi-toggle');
+            if (tog) tog.checked = radio.enabled;
+        });
+        // Render SSID table
+        const tbody = document.getElementById('wifi-ssid-tbody');
+        if (tbody && d.ssids) {
+            tbody.innerHTML = '';
+            d.ssids.forEach((s, i) => {
+                tbody.innerHTML += `<tr>
+                  <td>${i+1}</td>
+                  <td>${s.ssid}</td>
+                  <td>${s.band}</td>
+                  <td>${s.security}</td>
+                  <td><input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="wifiToggleSsid(${i},this.checked)"></td>
+                  <td>${s.clients}</td>
+                  <td>
+                    <button class="btn btn-primary btn-sm" onclick='wifiOpenEditModal(${JSON.stringify(s)},${i})'><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-warning btn-sm" onclick="wifiToggleSsid(${i},false)"><i class="fas fa-ban"></i></button>
+                  </td>
+                </tr>`;
+            });
+        }
+        // Render stats
+        const statsBody = document.getElementById('wifi-stats-tbody');
+        if (statsBody && d.stats) {
+            statsBody.innerHTML = '';
+            d.stats.forEach(s => {
+                statsBody.innerHTML += `<tr>
+                  <td>${s.radio}</td>
+                  <td>${s.tx_bytes}</td>
+                  <td>${s.rx_bytes}</td>
+                  <td>${s.errors}</td>
+                  <td>${s.utilization}%</td>
+                </tr>`;
+            });
+        }
+    } catch(e) { console.error('WiFi status error', e); }
+}
+
+async function wifiScan() {
+    const btn = document.getElementById('wifi-scan-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning…'; }
+    try {
+        const r = await fetch('/api/wifi/scan');
+        const d = await r.json();
+        const tbody = document.getElementById('wifi-scan-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            (d.results || []).forEach(n => {
+                tbody.innerHTML += `<tr>
+                  <td>${n.ssid}</td>
+                  <td><code>${n.bssid}</code></td>
+                  <td>${n.signal} dBm</td>
+                  <td>${n.band}</td>
+                  <td>${n.security}</td>
+                </tr>`;
+            });
+        }
+        const panel = document.getElementById('wifi-scan-results');
+        if (panel) panel.style.display = 'block';
+    } catch(e) { console.error('WiFi scan error', e); }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Scan for Networks'; } }
+}
+
+function wifiOpenEditModal(ssid, idx) {
+    document.getElementById('wifi-edit-idx').value = idx;
+    document.getElementById('wifi-edit-ssid').value = ssid.ssid || '';
+    document.getElementById('wifi-edit-password').value = ssid.password || '';
+    document.getElementById('wifi-edit-security').value = ssid.security || 'WPA2-Personal';
+    document.getElementById('wifi-edit-band').value = ssid.band || '2.4GHz';
+    document.getElementById('wifi-edit-channel').value = ssid.channel || '';
+    document.getElementById('wifi-edit-maxclients').value = ssid.max_clients || '';
+    document.getElementById('wifi-edit-modal').style.display = 'flex';
+}
+
+function wifiCloseModal() {
+    document.getElementById('wifi-edit-modal').style.display = 'none';
+}
+
+async function wifiSaveEdit() {
+    const idx = document.getElementById('wifi-edit-idx').value;
+    const payload = {
+        idx: parseInt(idx),
+        ssid: document.getElementById('wifi-edit-ssid').value,
+        password: document.getElementById('wifi-edit-password').value,
+        security: document.getElementById('wifi-edit-security').value,
+        band: document.getElementById('wifi-edit-band').value,
+        channel: document.getElementById('wifi-edit-channel').value,
+        max_clients: parseInt(document.getElementById('wifi-edit-maxclients').value) || 0
+    };
+    try {
+        const r = await fetch('/api/wifi/set_ssid', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const d = await r.json();
+        showNotification(d.success ? 'SSID updated successfully' : 'Update failed: ' + d.error, d.success ? 'success' : 'error');
+        if (d.success) { wifiCloseModal(); wifiLoadStatus(); }
+    } catch(e) { showNotification('SSID update error', 'error'); }
+}
+
+async function wifiToggleSsid(idx, enabled) {
+    try {
+        await fetch('/api/wifi/set_ssid', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({idx, enabled}) });
+    } catch(e) { console.error('WiFi toggle error', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. Connected Devices
+// ══════════════════════════════════════════════════════════════════════════════
+let _allDevices = [];
+
+async function devicesLoad() {
+    try {
+        const r = await fetch('/api/devices');
+        const d = await r.json();
+        _allDevices = d.devices || [];
+        devicesRender(_allDevices);
+        // Update summary
+        const wifi = _allDevices.filter(x => x.connection_type === 'WiFi').length;
+        const wired = _allDevices.filter(x => x.connection_type === 'Wired').length;
+        const active = _allDevices.filter(x => x.status === 'Active').length;
+        const el = id => document.getElementById(id);
+        if (el('dev-total')) el('dev-total').textContent = _allDevices.length;
+        if (el('dev-wifi')) el('dev-wifi').textContent = wifi;
+        if (el('dev-wired')) el('dev-wired').textContent = wired;
+        if (el('dev-active')) el('dev-active').textContent = active;
+    } catch(e) { console.error('Devices load error', e); }
+}
+
+function devicesRender(list) {
+    const tbody = document.getElementById('devices-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    list.forEach((d,i) => {
+        const sigHtml = d.connection_type === 'WiFi' ? signalBars(d.signal) : '<span class="text-muted">—</span>';
+        tbody.innerHTML += `<tr class="dev-row" onclick="devicesToggleDetail(${i})">
+          <td>${d.hostname}</td>
+          <td>${d.ip}</td>
+          <td><code>${d.mac}</code></td>
+          <td><i class="fas fa-${d.connection_type==='WiFi'?'wifi':'ethernet'}" title="${d.connection_type}"></i> ${d.connection_type}</td>
+          <td>${d.ssid || '—'}</td>
+          <td>${sigHtml}</td>
+          <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
+          <td>${d.last_seen}</td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();devicesBlock('${d.mac}',${!d.blocked})">${d.blocked?'Unblock':'Block'}</button>
+          </td>
+        </tr>
+        <tr id="dev-detail-${i}" class="dev-detail-row" style="display:none">
+          <td colspan="9">
+            <div class="dev-detail-panel">
+              <div><strong>Vendor:</strong> ${d.vendor || 'Unknown'}</div>
+              <div><strong>Lease:</strong> ${d.lease_time || 'N/A'}</div>
+              <div><strong>TX Rate:</strong> ${d.tx_rate || '—'} Mbps</div>
+              <div><strong>RX Rate:</strong> ${d.rx_rate || '—'} Mbps</div>
+              <div><strong>RSSI:</strong> ${d.rssi || '—'} dBm</div>
+              <div><strong>Internet:</strong> <button class="btn btn-warning btn-sm" onclick="devicesBlock('${d.mac}',${!d.blocked})">${d.blocked?'Unblocked':'Block Internet'}</button></div>
+            </div>
+          </td>
+        </tr>`;
+    });
+}
+
+function signalBars(sig) {
+    const val = parseInt(sig) || -100;
+    const pct = Math.min(100, Math.max(0, (val + 100) * 2));
+    const color = pct > 60 ? 'var(--success)' : pct > 30 ? 'var(--warning)' : 'var(--error)';
+    return `<span class="signal-bars" title="${val} dBm">
+      <span class="signal-bar ${pct>20?'active':''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct>40?'active':''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct>60?'active':''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct>80?'active':''}" style="background:${color}"></span>
+    </span>`;
+}
+
+function devicesToggleDetail(i) {
+    const row = document.getElementById('dev-detail-' + i);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+async function devicesBlock(mac, block) {
+    try {
+        const r = await fetch('/api/devices/block', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({mac, block}) });
+        const d = await r.json();
+        showNotification(d.success ? (block?'Device blocked':'Device unblocked') : 'Action failed', d.success?'success':'error');
+        devicesLoad();
+    } catch(e) { showNotification('Device block error', 'error'); }
+}
+
+function devicesFilter(type) {
+    document.querySelectorAll('.dev-filter-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.dev-filter-btn[data-filter="${type}"]`);
+    if (btn) btn.classList.add('active');
+    let list = _allDevices;
+    if (type === 'WiFi') list = list.filter(d => d.connection_type === 'WiFi');
+    else if (type === 'Wired') list = list.filter(d => d.connection_type === 'Wired');
+    else if (type === 'Active') list = list.filter(d => d.status === 'Active');
+    else if (type === 'Inactive') list = list.filter(d => d.status === 'Inactive');
+    devicesRender(list);
+}
+
+function devicesSearch(q) {
+    q = q.toLowerCase();
+    const list = _allDevices.filter(d =>
+        d.hostname.toLowerCase().includes(q) || d.mac.toLowerCase().includes(q) || d.ip.includes(q)
+    );
+    devicesRender(list);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. Diagnostics
+// ══════════════════════════════════════════════════════════════════════════════
+async function diagRunPing() {
+    const host = document.getElementById('diag-ping-host').value.trim();
+    const count = document.getElementById('diag-ping-count').value || 4;
+    const size = document.getElementById('diag-ping-size').value || 64;
+    if (!host) { showNotification('Enter a target host', 'warning'); return; }
+    const btn = document.getElementById('diag-ping-btn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running…';
+    try {
+        const r = await fetch('/api/diagnostics/ping', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({host, count: parseInt(count), size: parseInt(size)}) });
+        const d = await r.json();
+        const res = document.getElementById('diag-ping-results');
+        if (res) {
+            res.style.display = 'block';
+            res.innerHTML = d.success
+                ? `<div class="diag-result-ok"><i class="fas fa-check-circle"></i> Success</div>
+                   <div class="diag-result-grid">
+                     <div><span>Min RTT</span><strong>${d.min_rtt} ms</strong></div>
+                     <div><span>Avg RTT</span><strong>${d.avg_rtt} ms</strong></div>
+                     <div><span>Max RTT</span><strong>${d.max_rtt} ms</strong></div>
+                     <div><span>Packet Loss</span><strong>${d.packet_loss}%</strong></div>
+                   </div>`
+                : `<div class="diag-result-err"><i class="fas fa-times-circle"></i> ${d.error || 'Ping failed'}</div>`;
+        }
+    } catch(e) { showNotification('Ping error', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Run Ping'; }
+}
+
+async function diagRunTraceroute() {
+    const host = document.getElementById('diag-trace-host').value.trim();
+    const maxhops = document.getElementById('diag-trace-hops').value || 30;
+    if (!host) { showNotification('Enter a target host', 'warning'); return; }
+    const btn = document.getElementById('diag-trace-btn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running…';
+    try {
+        const r = await fetch('/api/diagnostics/traceroute', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({host, max_hops: parseInt(maxhops)}) });
+        const d = await r.json();
+        const tbody = document.getElementById('diag-trace-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            (d.hops || []).forEach(h => {
+                tbody.innerHTML += `<tr><td>${h.hop}</td><td>${h.hostname}</td><td>${h.ip}</td><td>${h.rtt1}</td><td>${h.rtt2}</td><td>${h.rtt3}</td></tr>`;
+            });
+        }
+        const res = document.getElementById('diag-trace-results');
+        if (res) res.style.display = 'block';
+    } catch(e) { showNotification('Traceroute error', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-route"></i> Run Traceroute'; }
+}
+
+async function diagRunDns() {
+    const domain = document.getElementById('diag-dns-domain').value.trim();
+    const server = document.getElementById('diag-dns-server').value.trim();
+    if (!domain) { showNotification('Enter a domain name', 'warning'); return; }
+    const btn = document.getElementById('diag-dns-btn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Looking up…';
+    try {
+        const r = await fetch('/api/diagnostics/dns', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({domain, server}) });
+        const d = await r.json();
+        const res = document.getElementById('diag-dns-results');
+        if (res) {
+            res.style.display = 'block';
+            res.innerHTML = d.success
+                ? `<div><strong>A:</strong> ${(d.a||[]).join(', ') || 'none'}</div>
+                   <div><strong>AAAA:</strong> ${(d.aaaa||[]).join(', ') || 'none'}</div>
+                   <div><strong>MX:</strong> ${(d.mx||[]).join(', ') || 'none'}</div>`
+                : `<div class="diag-result-err">${d.error}</div>`;
+        }
+    } catch(e) { showNotification('DNS lookup error', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Lookup'; }
+}
+
+async function diagRunSpeedTest(type) {
+    const btn = document.getElementById('diag-speed-' + type + '-btn');
+    const bar = document.getElementById('diag-speed-bar-' + type);
+    const result = document.getElementById('diag-speed-result-' + type);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing…'; }
+    if (bar) { bar.style.display = 'block'; bar.querySelector('.diag-progress-fill').style.width = '0%'; }
+    // Animate progress bar
+    let prog = 0;
+    const interval = setInterval(() => {
+        prog = Math.min(95, prog + Math.random() * 15);
+        if (bar) bar.querySelector('.diag-progress-fill').style.width = prog + '%';
+    }, 300);
+    try {
+        const r = await fetch('/api/diagnostics/speedtest', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({type}) });
+        const d = await r.json();
+        clearInterval(interval);
+        if (bar) bar.querySelector('.diag-progress-fill').style.width = '100%';
+        if (result) {
+            result.style.display = 'block';
+            result.innerHTML = d.success
+                ? `<strong>${d.speed} Mbps</strong> (latency: ${d.latency}ms)`
+                : `<span class="diag-result-err">${d.error}</span>`;
+        }
+    } catch(e) { clearInterval(interval); showNotification('Speed test error', 'error'); }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = type==='download' ? '<i class="fas fa-arrow-down"></i> Test Download' : '<i class="fas fa-arrow-up"></i> Test Upload'; } }
+}
+
+async function diagLoadHealth() {
+    try {
+        const r = await fetch('/api/diagnostics/health');
+        const d = await r.json();
+        (d.checks || []).forEach(c => {
+            const el = document.getElementById('diag-health-' + c.name.toLowerCase().replace(/\s+/g,'-'));
+            if (el) {
+                el.className = 'diag-health-tile diag-health-' + (c.status === 'ok' ? 'ok' : c.status === 'warn' ? 'warn' : 'fail');
+                el.querySelector('.diag-health-status').textContent = c.status.toUpperCase();
+            }
+        });
+    } catch(e) { console.error('Health check error', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 4. Location
+// ══════════════════════════════════════════════════════════════════════════════
+async function locationLoad() {
+    try {
+        const r = await fetch('/api/location/get');
+        const d = await r.json();
+        const f = d.location || {};
+        ['street','city','country','latitude','longitude','postal_code'].forEach(k => {
+            const el = document.getElementById('loc-' + k.replace('_','-'));
+            if (el) el.value = f[k] || '';
+        });
+        const tz = document.getElementById('loc-timezone');
+        if (tz && d.timezone) tz.value = d.timezone;
+        const ntp1 = document.getElementById('loc-ntp1');
+        const ntp2 = document.getElementById('loc-ntp2');
+        if (ntp1 && d.ntp) ntp1.value = d.ntp[0] || '';
+        if (ntp2 && d.ntp) ntp2.value = d.ntp[1] || '';
+        // Map link
+        const lat = f.latitude, lng = f.longitude;
+        const mapLink = document.getElementById('loc-map-link');
+        if (mapLink && lat && lng) mapLink.href = `https://maps.google.com/?q=${lat},${lng}`;
+        const mapCoords = document.getElementById('loc-map-coords');
+        if (mapCoords) mapCoords.textContent = lat && lng ? `${lat}, ${lng}` : 'No coordinates set';
+        // ISP
+        const isp = d.isp || {};
+        ['name','asn','region'].forEach(k => {
+            const el = document.getElementById('loc-isp-' + k);
+            if (el) el.textContent = isp[k] || '—';
+        });
+    } catch(e) { console.error('Location load error', e); }
+}
+
+async function locationSave() {
+    const payload = {
+        street: document.getElementById('loc-street').value,
+        city: document.getElementById('loc-city').value,
+        country: document.getElementById('loc-country').value,
+        latitude: document.getElementById('loc-latitude').value,
+        longitude: document.getElementById('loc-longitude').value,
+        postal_code: document.getElementById('loc-postal-code').value
+    };
+    try {
+        const r = await fetch('/api/location/set', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const d = await r.json();
+        showNotification(d.success ? 'Location saved' : 'Save failed: ' + d.error, d.success ? 'success' : 'error');
+        if (d.success) locationLoad();
+    } catch(e) { showNotification('Location save error', 'error'); }
+}
+
+async function locationSaveTimezone() {
+    const payload = {
+        timezone: document.getElementById('loc-timezone').value,
+        ntp: [document.getElementById('loc-ntp1').value, document.getElementById('loc-ntp2').value],
+        locale: document.getElementById('loc-locale').value
+    };
+    try {
+        const r = await fetch('/api/location/timezone', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const d = await r.json();
+        showNotification(d.success ? 'Timezone saved' : 'Save failed: ' + d.error, d.success ? 'success' : 'error');
+    } catch(e) { showNotification('Timezone save error', 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 5. AI Assistant
+// ══════════════════════════════════════════════════════════════════════════════
+let _aiMessages = [];
+
+function aiSendMessage() {
+    const input = document.getElementById('ai-input');
+    const text = input ? input.value.trim() : '';
+    if (!text) return;
+    aiAppendMessage(text, 'user');
+    input.value = '';
+    aiCallBackend(text);
+}
+
+function aiAppendMessage(text, role, ts) {
+    const container = document.getElementById('ai-messages');
+    if (!container) return;
+    const time = ts || new Date().toLocaleTimeString();
+    const div = document.createElement('div');
+    div.className = 'ai-msg ai-msg-' + role;
+    div.innerHTML = `<div class="ai-bubble">${text}</div><div class="ai-ts">${time}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    _aiMessages.push({role, text, time});
+}
+
+function aiShowTyping() {
+    const container = document.getElementById('ai-messages');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.id = 'ai-typing';
+    div.className = 'ai-msg ai-msg-assistant';
+    div.innerHTML = '<div class="ai-bubble ai-typing-indicator"><span></span><span></span><span></span></div>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function aiHideTyping() {
+    const el = document.getElementById('ai-typing');
+    if (el) el.remove();
+}
+
+async function aiCallBackend(message) {
+    aiShowTyping();
+    try {
+        const context = {
+            connected: document.querySelector('.pill-connected') !== null,
+            data_model_count: parseInt(document.querySelector('.hero-stat-value') ? document.querySelectorAll('.hero-stat-value')[1]?.textContent || '0' : '0'),
+        };
+        const r = await fetch('/api/ai/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message, context}) });
+        const d = await r.json();
+        aiHideTyping();
+        aiAppendMessage(d.response || 'No response', 'assistant');
+    } catch(e) {
+        aiHideTyping();
+        aiAppendMessage('Error contacting AI backend.', 'assistant');
+    }
+}
+
+function aiSendChip(text) {
+    const input = document.getElementById('ai-input');
+    if (input) { input.value = text; aiSendMessage(); }
+}
+
+function aiClearChat() {
+    const container = document.getElementById('ai-messages');
+    if (container) container.innerHTML = '';
+    _aiMessages = [];
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 6. Role-Based Access Control
+// ══════════════════════════════════════════════════════════════════════════════
+async function rbacLoadUsers() {
+    try {
+        const r = await fetch('/api/rbac/users');
+        const d = await r.json();
+        const tbody = document.getElementById('rbac-users-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            (d.users || []).forEach(u => {
+                tbody.innerHTML += `<tr>
+                  <td>${u.username}</td>
+                  <td><span class="role-badge role-${u.role.toLowerCase()}">${u.role}</span></td>
+                  <td><span class="status-badge status-${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+                  <td>${u.last_login || 'Never'}</td>
+                  <td>
+                    <select class="form-control form-control-sm" onchange="rbacSetRole('${u.username}',this.value)">
+                      ${['Admin','Operator','Viewer'].map(r => `<option ${r===u.role?'selected':''}>${r}</option>`).join('')}
+                    </select>
+                    <button class="btn btn-${u.active?'warning':'success'} btn-sm" onclick="rbacToggleUser('${u.username}',${!u.active})">${u.active?'Deactivate':'Activate'}</button>
+                  </td>
+                </tr>`;
+            });
+        }
+    } catch(e) { console.error('RBAC users error', e); }
+}
+
+async function rbacSetRole(username, role) {
+    try {
+        await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'set_role', username, role}) });
+        showNotification(`Role updated for ${username}`, 'success');
+    } catch(e) { showNotification('Role update failed', 'error'); }
+}
+
+async function rbacToggleUser(username, active) {
+    try {
+        await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'toggle', username, active}) });
+        showNotification(`User ${username} ${active?'activated':'deactivated'}`, 'success');
+        rbacLoadUsers();
+    } catch(e) { showNotification('User toggle failed', 'error'); }
+}
+
+async function rbacAddUser() {
+    const username = document.getElementById('rbac-new-username').value.trim();
+    const password = document.getElementById('rbac-new-password').value;
+    const role = document.getElementById('rbac-new-role').value;
+    if (!username || !password) { showNotification('Username and password required', 'warning'); return; }
+    try {
+        const r = await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'add', username, password, role}) });
+        const d = await r.json();
+        showNotification(d.success ? `User ${username} added` : d.error, d.success ? 'success' : 'error');
+        if (d.success) { document.getElementById('rbac-new-username').value = ''; document.getElementById('rbac-new-password').value = ''; rbacLoadUsers(); }
+    } catch(e) { showNotification('Add user failed', 'error'); }
+}
+
+async function rbacLoadSession() {
+    try {
+        const r = await fetch('/api/rbac/session');
+        const d = await r.json();
+        const el = document.getElementById('rbac-session-info');
+        if (el && d.session) {
+            el.innerHTML = `<div><strong>User:</strong> ${d.session.username}</div>
+                            <div><strong>Role:</strong> <span class="role-badge role-${d.session.role.toLowerCase()}">${d.session.role}</span></div>
+                            <div><strong>Since:</strong> ${d.session.start}</div>
+                            <div><strong>Permissions:</strong> ${d.session.permissions.join(', ')}</div>`;
+        }
+        const tbody = document.getElementById('rbac-sessions-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            (d.sessions || []).forEach(s => {
+                tbody.innerHTML += `<tr>
+                  <td>${s.username}</td>
+                  <td>${s.ip}</td>
+                  <td>${s.login_time}</td>
+                  <td><button class="btn btn-danger btn-sm" onclick="rbacRevokeSession('${s.id}')"><i class="fas fa-sign-out-alt"></i> Revoke</button></td>
+                </tr>`;
+            });
+        }
+    } catch(e) { console.error('RBAC session error', e); }
+}
+
+async function rbacRevokeSession(id) {
+    try {
+        await fetch('/api/rbac/session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'revoke', id}) });
+        showNotification('Session revoked', 'success');
+        rbacLoadSession();
+    } catch(e) { showNotification('Revoke failed', 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 7. Mass Actions
+// ══════════════════════════════════════════════════════════════════════════════
+let _massActionType = 'batch_set';
+let _massBatchRows = [];
+let _massPollingInterval = null;
+
+function massSelectType(type) {
+    _massActionType = type;
+    document.querySelectorAll('.mass-type-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.mass-type-btn[data-type="${type}"]`);
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.mass-panel').forEach(p => p.style.display = 'none');
+    const panel = document.getElementById('mass-panel-' + type.replace('_','-'));
+    if (panel) panel.style.display = 'block';
+}
+
+function massAddBatchRow() {
+    const container = document.getElementById('mass-batch-rows');
+    const idx = _massBatchRows.length;
+    _massBatchRows.push({path:'',value:''});
+    const row = document.createElement('div');
+    row.className = 'mass-batch-row';
+    row.id = 'mass-row-' + idx;
+    row.innerHTML = `<input class="form-control" placeholder="Device.X.Parameter" onchange="_massBatchRows[${idx}].path=this.value">
+                     <input class="form-control" placeholder="Value" onchange="_massBatchRows[${idx}].value=this.value">
+                     <button class="btn btn-danger btn-sm" onclick="massRemoveBatchRow(${idx})"><i class="fas fa-trash"></i></button>`;
+    if (container) container.appendChild(row);
+}
+
+function massRemoveBatchRow(idx) {
+    const row = document.getElementById('mass-row-' + idx);
+    if (row) row.remove();
+    _massBatchRows[idx] = null;
+}
+
+async function massSubmit() {
+    const selectedCpes = Array.from(document.querySelectorAll('.mass-cpe-checkbox:checked')).map(c => c.value);
+    if (!selectedCpes.length) { showNotification('Select at least one CPE', 'warning'); return; }
+    const payload = {
+        type: _massActionType,
+        cpes: selectedCpes,
+        params: _massBatchRows.filter(Boolean),
+        firmware_url: document.getElementById('mass-fw-url')?.value || '',
+        firmware_checksum: document.getElementById('mass-fw-checksum')?.value || '',
+        schedule: document.getElementById('mass-fw-schedule')?.value || 'immediate'
+    };
+    try {
+        const r = await fetch('/api/mass_actions/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const d = await r.json();
+        if (d.success) {
+            showNotification(`Job ${d.job_id} submitted`, 'success');
+            massStartPolling(d.job_id);
+            massLoadHistory();
+        } else { showNotification(d.error || 'Submission failed', 'error'); }
+    } catch(e) { showNotification('Submit error', 'error'); }
+}
+
+function massStartPolling(jobId) {
+    if (_massPollingInterval) clearInterval(_massPollingInterval);
+    const bar = document.getElementById('mass-progress-bar');
+    const status = document.getElementById('mass-progress-status');
+    if (bar) { bar.parentElement.style.display = 'block'; bar.style.width = '0%'; }
+    _massPollingInterval = setInterval(async () => {
+        try {
+            const r = await fetch('/api/mass_actions/status/' + jobId);
+            const d = await r.json();
+            if (bar) bar.style.width = (d.progress || 0) + '%';
+            if (status) status.textContent = `${d.status} — ${d.success_count||0} OK / ${d.fail_count||0} failed`;
+            if (d.status === 'completed' || d.status === 'failed') {
+                clearInterval(_massPollingInterval);
+                showNotification('Job ' + jobId + ' ' + d.status, d.status === 'completed' ? 'success' : 'error');
+                massLoadHistory();
+            }
+        } catch(e) { clearInterval(_massPollingInterval); }
+    }, 2000);
+}
+
+async function massLoadHistory() {
+    try {
+        const r = await fetch('/api/mass_actions/history');
+        const d = await r.json();
+        const tbody = document.getElementById('mass-history-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            (d.history || []).forEach(j => {
+                tbody.innerHTML += `<tr>
+                  <td><code>${j.job_id}</code></td>
+                  <td>${j.type}</td>
+                  <td>${(j.cpes||[]).join(', ')}</td>
+                  <td><span class="status-badge status-${j.status}">${j.status}</span></td>
+                  <td>${j.started}</td>
+                  <td>${j.completed || '—'}</td>
+                  <td>${j.success_count || 0} / ${j.fail_count || 0}</td>
+                </tr>`;
+            });
+        }
+    } catch(e) { console.error('Mass history error', e); }
+}
+
+function massSelectAllCpes(checked) {
+    document.querySelectorAll('.mass-cpe-checkbox').forEach(c => c.checked = checked);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 8. Multi-CPE Support
+// ══════════════════════════════════════════════════════════════════════════════
+async function cpeLoadList() {
+    try {
+        const r = await fetch('/api/cpes');
+        const d = await r.json();
+        // Registry table
+        const tbody = document.getElementById('cpe-registry-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            (d.cpes || []).forEach(c => {
+                tbody.innerHTML += `<tr>
+                  <td><code>${c.id}</code></td>
+                  <td>${c.serial}</td>
+                  <td>${c.model}</td>
+                  <td>${c.firmware}</td>
+                  <td>${c.ip}</td>
+                  <td><code>${c.agent_id}</code></td>
+                  <td><span class="status-badge status-${c.status.toLowerCase()}">${c.status}</span></td>
+                  <td>${c.last_seen}</td>
+                  <td>
+                    <button class="btn btn-primary btn-sm" onclick="cpeConnect('${c.id}')"><i class="fas fa-plug"></i> Connect</button>
+                    <button class="btn btn-info btn-sm" onclick="cpeViewDetails('${c.id}')"><i class="fas fa-info-circle"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="cpeRemove('${c.id}')"><i class="fas fa-trash"></i></button>
+                  </td>
+                </tr>`;
+            });
+        }
+        // Dashboard cards
+        const grid = document.getElementById('cpe-dashboard-grid');
+        if (grid) {
+            grid.innerHTML = '';
+            (d.cpes || []).forEach(c => {
+                grid.innerHTML += `<div class="cpe-card cpe-card-${c.status.toLowerCase()}">
+                  <div class="cpe-card-header">
+                    <span class="cpe-status-dot"></span>
+                    <strong>${c.friendly_name || c.serial}</strong>
+                  </div>
+                  <div class="cpe-card-body">
+                    <div><i class="fas fa-barcode"></i> ${c.serial}</div>
+                    <div><i class="fas fa-microchip"></i> ${c.model}</div>
+                    <div><i class="fas fa-network-wired"></i> ${c.ip}</div>
+                  </div>
+                  <button class="btn btn-primary btn-sm w-100 mt-2" onclick="cpeConnect('${c.id}')"><i class="fas fa-plug"></i> Connect</button>
+                </div>`;
+            });
+        }
+        // Selector dropdown
+        const sel = document.getElementById('cpe-active-selector');
+        if (sel) {
+            const current = sel.value;
+            sel.innerHTML = '<option value="">— Select Active CPE —</option>';
+            (d.cpes || []).forEach(c => {
+                sel.innerHTML += `<option value="${c.id}" ${c.id===current?'selected':''}>${c.friendly_name || c.serial}</option>`;
+            });
+        }
+        // Mass actions CPE list
+        const massContainer = document.getElementById('mass-cpe-list');
+        if (massContainer) {
+            massContainer.innerHTML = '';
+            (d.cpes || []).forEach(c => {
+                massContainer.innerHTML += `<label class="mass-cpe-item">
+                  <input type="checkbox" class="mass-cpe-checkbox" value="${c.id}"> ${c.friendly_name || c.serial}
+                </label>`;
+            });
+        }
+    } catch(e) { console.error('CPE list error', e); }
+}
+
+async function cpeAdd() {
+    const payload = {
+        serial: document.getElementById('cpe-add-serial').value.trim(),
+        broker: document.getElementById('cpe-add-broker').value.trim(),
+        port: parseInt(document.getElementById('cpe-add-port').value) || 1883,
+        agent_id: document.getElementById('cpe-add-agentid').value.trim(),
+        friendly_name: document.getElementById('cpe-add-name').value.trim(),
+        tags: (document.getElementById('cpe-add-tags').value || '').split(',').map(t => t.trim()).filter(Boolean)
+    };
+    if (!payload.serial || !payload.broker) { showNotification('Serial and broker required', 'warning'); return; }
+    try {
+        const r = await fetch('/api/cpes/add', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const d = await r.json();
+        showNotification(d.success ? 'CPE added: ' + d.id : d.error, d.success ? 'success' : 'error');
+        if (d.success) cpeLoadList();
+    } catch(e) { showNotification('CPE add error', 'error'); }
+}
+
+async function cpeRemove(id) {
+    if (!confirm('Remove CPE ' + id + '?')) return;
+    try {
+        const r = await fetch('/api/cpes/remove/' + id, { method: 'DELETE' });
+        const d = await r.json();
+        showNotification(d.success ? 'CPE removed' : d.error, d.success ? 'success' : 'error');
+        if (d.success) cpeLoadList();
+    } catch(e) { showNotification('CPE remove error', 'error'); }
+}
+
+async function cpeConnect(id) {
+    try {
+        const r = await fetch('/api/cpes/connect/' + id, { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+            showNotification('Now managing: ' + (d.name || id), 'success');
+            const banner = document.getElementById('cpe-active-banner');
+            if (banner) { banner.textContent = 'Now managing: ' + (d.name || id); banner.style.display = 'block'; }
+            cpeLoadList();
+        } else { showNotification(d.error || 'Connect failed', 'error'); }
+    } catch(e) { showNotification('CPE connect error', 'error'); }
+}
+
+function cpeViewDetails(id) {
+    showNotification('CPE detail view for ' + id, 'info');
+}
+
+async function cpeSwitchActive() {
+    const id = document.getElementById('cpe-active-selector').value;
+    if (id) await cpeConnect(id);
+}
+
+async function cpeCompare() {
+    const checked = Array.from(document.querySelectorAll('.cpe-compare-checkbox:checked')).map(c => c.value);
+    if (checked.length < 2) { showNotification('Select 2 or 3 CPEs to compare', 'warning'); return; }
+    try {
+        const r = await fetch('/api/cpes/compare', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ids: checked}) });
+        const d = await r.json();
+        const table = document.getElementById('cpe-compare-table');
+        if (table && d.success) {
+            let html = '<thead><tr><th>Parameter</th>' + d.cpes.map(c => `<th>${c.name}</th>`).join('') + '</tr></thead><tbody>';
+            (d.params || []).forEach(row => {
+                html += '<tr><td>' + row.param + '</td>' + d.cpes.map(c => `<td>${row.values[c.id] || '—'}</td>`).join('') + '</tr>';
+            });
+            html += '</tbody>';
+            table.innerHTML = html;
+            document.getElementById('cpe-compare-panel').style.display = 'block';
+        }
+    } catch(e) { showNotification('Compare error', 'error'); }
+}
+
+function cpeFilterByTag(tag) {
+    document.querySelectorAll('.cpe-tag-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.cpe-tag-btn[data-tag="${tag}"]`);
+    if (btn) btn.classList.add('active');
+    // Filter cards by tag
+    document.querySelectorAll('.cpe-card').forEach(card => {
+        if (tag === 'all' || card.dataset.tags?.includes(tag)) card.style.display = '';
+        else card.style.display = 'none';
+    });
+}
+
+// ── Initialize new sections on DOMContentLoaded ──────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    // Load data when sections are first visited
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            const section = item.getAttribute('data-section');
+            if (section === 'section-wifi') wifiLoadStatus();
+            else if (section === 'section-devices') devicesLoad();
+            else if (section === 'section-diagnostics') diagLoadHealth();
+            else if (section === 'section-location') locationLoad();
+            else if (section === 'section-rbac') { rbacLoadUsers(); rbacLoadSession(); }
+            else if (section === 'section-mass-actions') { massLoadHistory(); cpeLoadList(); }
+            else if (section === 'section-cpe') cpeLoadList();
+        });
+    });
+
+    // AI chat Enter key
+    const aiInput = document.getElementById('ai-input');
+    if (aiInput) {
+        aiInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSendMessage(); }
+        });
+    }
+});
+
+// Export new functions
+window.wifiLoadStatus = wifiLoadStatus;
+window.wifiScan = wifiScan;
+window.wifiOpenEditModal = wifiOpenEditModal;
+window.wifiCloseModal = wifiCloseModal;
+window.wifiSaveEdit = wifiSaveEdit;
+window.wifiToggleSsid = wifiToggleSsid;
+window.devicesLoad = devicesLoad;
+window.devicesFilter = devicesFilter;
+window.devicesSearch = devicesSearch;
+window.devicesBlock = devicesBlock;
+window.devicesToggleDetail = devicesToggleDetail;
+window.diagRunPing = diagRunPing;
+window.diagRunTraceroute = diagRunTraceroute;
+window.diagRunDns = diagRunDns;
+window.diagRunSpeedTest = diagRunSpeedTest;
+window.diagLoadHealth = diagLoadHealth;
+window.locationLoad = locationLoad;
+window.locationSave = locationSave;
+window.locationSaveTimezone = locationSaveTimezone;
+window.aiSendMessage = aiSendMessage;
+window.aiSendChip = aiSendChip;
+window.aiClearChat = aiClearChat;
+window.rbacLoadUsers = rbacLoadUsers;
+window.rbacAddUser = rbacAddUser;
+window.rbacSetRole = rbacSetRole;
+window.rbacToggleUser = rbacToggleUser;
+window.rbacRevokeSession = rbacRevokeSession;
+window.massSelectType = massSelectType;
+window.massAddBatchRow = massAddBatchRow;
+window.massRemoveBatchRow = massRemoveBatchRow;
+window.massSubmit = massSubmit;
+window.massLoadHistory = massLoadHistory;
+window.massSelectAllCpes = massSelectAllCpes;
+window.cpeLoadList = cpeLoadList;
+window.cpeAdd = cpeAdd;
+window.cpeRemove = cpeRemove;
+window.cpeConnect = cpeConnect;
+window.cpeSwitchActive = cpeSwitchActive;
+window.cpeCompare = cpeCompare;
+window.cpeFilterByTag = cpeFilterByTag;
