@@ -1627,12 +1627,17 @@ async function alertsEvaluateRules() {
 }
 
 function alertsAddRule() {
+    const nameInput = document.getElementById('alerts-rule-name');
+    const pathInput = document.getElementById('alerts-rule-path');
+    const conditionInput = document.getElementById('alerts-rule-condition');
+    const thresholdInput = document.getElementById('alerts-rule-threshold');
+    const severityInput = document.getElementById('alerts-rule-severity');
     const rule = {
-        name: (document.getElementById('alerts-rule-name') || {}).value?.trim() || 'Unnamed Alert',
-        path: (document.getElementById('alerts-rule-path') || {}).value?.trim() || '',
-        condition: (document.getElementById('alerts-rule-condition') || {}).value || '>',
-        threshold: (document.getElementById('alerts-rule-threshold') || {}).value || '0',
-        severity: (document.getElementById('alerts-rule-severity') || {}).value || 'Warning',
+        name: (nameInput ? nameInput.value : '').trim() || 'Unnamed Alert',
+        path: (pathInput ? pathInput.value : '').trim(),
+        condition: conditionInput ? conditionInput.value : '>',
+        threshold: thresholdInput ? thresholdInput.value : '0',
+        severity: severityInput ? severityInput.value : 'Warning',
         muted: false
     };
     if (!rule.path) return showNotification('Parameter path is required', 'warning');
@@ -1917,12 +1922,12 @@ async function wifiLoadStatus() {
             window._wifiSsids = d.ssids;
             tbody.innerHTML = '';
             d.ssids.forEach((s, i) => {
-                const masked = s.password ? '•'.repeat(Math.min(8, String(s.password).length)) : '••••••••';
+                const masked = '••••••••';
                 tbody.innerHTML += `<tr>
                   <td>${escHtml(s.ssid || 'Unknown')}</td>
                   <td>${escHtml(s.band || '—')}</td>
                   <td>${escHtml(s.security || 'WPA2-Personal')}</td>
-                  <td><span id="wifi-key-${i}" data-raw="${escHtml(s.password || '')}">${masked}</span> <button class="btn btn-sm btn-info" onclick="wifiToggleKey(${i})">Show/Hide</button></td>
+                  <td><span id="wifi-key-${i}" data-raw="${escHtml(s.password || '')}" data-masked="true">${masked}</span> <button class="btn btn-sm btn-info" onclick="wifiToggleKey(${i})">Show/Hide</button></td>
                   <td><code>${escHtml(s.bssid || '—')}</code></td>
                   <td><input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="wifiToggleSsid(${i},this.checked)"></td>
                   <td>
@@ -1943,8 +1948,14 @@ function wifiToggleKey(i) {
     const el = document.getElementById(`wifi-key-${i}`);
     if (!el) return;
     const raw = el.getAttribute('data-raw') || '';
-    const isMasked = el.textContent.includes('•');
-    el.textContent = isMasked ? raw || '(empty)' : '•'.repeat(Math.min(8, raw.length || 8));
+    const isMasked = el.getAttribute('data-masked') !== 'false';
+    if (isMasked) {
+        el.textContent = raw || '(empty)';
+        el.setAttribute('data-masked', 'false');
+    } else {
+        el.textContent = '••••••••';
+        el.setAttribute('data-masked', 'true');
+    }
 }
 
 function wifiToggleAddSsidForm() {
