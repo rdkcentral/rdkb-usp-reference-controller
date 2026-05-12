@@ -967,13 +967,17 @@ function showNotification(message, type = 'info') {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-        <i class="fas ${getNotificationIcon(type)}"></i>
-        <span>${message}</span>
-        <button type="button" onclick="this.parentElement.remove()">
-            <i class="fas fa-times"></i>
-        </button>
-    `;
+    const icon = document.createElement('i');
+    icon.className = `fas ${getNotificationIcon(type)}`;
+    const span = document.createElement('span');
+    span.textContent = message;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    closeBtn.onclick = function() { this.parentElement.remove(); };
+    notification.appendChild(icon);
+    notification.appendChild(span);
+    notification.appendChild(closeBtn);
     
     // Add to page
     document.body.appendChild(notification);
@@ -1638,7 +1642,7 @@ async function locationLoad() {
         const d = await r.json();
         const f = d.location || {};
         ['street','city','country','latitude','longitude','postal_code'].forEach(k => {
-            const el = document.getElementById('loc-' + k.replace('_','-'));
+            const el = document.getElementById('loc-' + k.replace(/_/g, '-'));
             if (el) el.value = f[k] || '';
         });
         const tz = document.getElementById('loc-timezone');

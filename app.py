@@ -3096,6 +3096,8 @@ def api_ai_chat():
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. RBAC Routes
 # ═══════════════════════════════════════════════════════════════════════════════
+# NOTE: Passwords below are plain text for demonstration/development only.
+# In production, use a proper password hashing library such as bcrypt or werkzeug.security.
 _rbac_users = {
     'admin': {'password': 'admin', 'role': 'Admin', 'active': True, 'last_login': '2024-01-15 10:30'},
     'operator': {'password': 'operator', 'role': 'Operator', 'active': True, 'last_login': '2024-01-14 08:15'},
