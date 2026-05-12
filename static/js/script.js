@@ -1267,6 +1267,18 @@ window.filterByCategory = filterByCategory;
 console.log('🎯 Enhanced USP Controller JavaScript loaded successfully');
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Security helper: escape HTML entities to prevent XSS
+// ══════════════════════════════════════════════════════════════════════════════
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // 1. WiFi Management
 // ══════════════════════════════════════════════════════════════════════════════
 async function wifiLoadStatus() {
@@ -1289,16 +1301,18 @@ async function wifiLoadStatus() {
         const tbody = document.getElementById('wifi-ssid-tbody');
         if (tbody && d.ssids) {
             tbody.innerHTML = '';
+            // Cache SSID list for modal lookups
+            window._wifiSsids = d.ssids;
             d.ssids.forEach((s, i) => {
                 tbody.innerHTML += `<tr>
                   <td>${i+1}</td>
-                  <td>${s.ssid}</td>
-                  <td>${s.band}</td>
-                  <td>${s.security}</td>
+                  <td>${escHtml(s.ssid)}</td>
+                  <td>${escHtml(s.band)}</td>
+                  <td>${escHtml(s.security)}</td>
                   <td><input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="wifiToggleSsid(${i},this.checked)"></td>
-                  <td>${s.clients}</td>
+                  <td>${parseInt(s.clients) || 0}</td>
                   <td>
-                    <button class="btn btn-primary btn-sm" onclick='wifiOpenEditModal(${JSON.stringify(s)},${i})'><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-primary btn-sm" onclick="wifiOpenEditModalByIdx(${i})"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-warning btn-sm" onclick="wifiToggleSsid(${i},false)"><i class="fas fa-ban"></i></button>
                   </td>
                 </tr>`;
@@ -1310,11 +1324,11 @@ async function wifiLoadStatus() {
             statsBody.innerHTML = '';
             d.stats.forEach(s => {
                 statsBody.innerHTML += `<tr>
-                  <td>${s.radio}</td>
-                  <td>${s.tx_bytes}</td>
-                  <td>${s.rx_bytes}</td>
-                  <td>${s.errors}</td>
-                  <td>${s.utilization}%</td>
+                  <td>${escHtml(s.radio)}</td>
+                  <td>${escHtml(s.tx_bytes)}</td>
+                  <td>${escHtml(s.rx_bytes)}</td>
+                  <td>${parseInt(s.errors) || 0}</td>
+                  <td>${parseFloat(s.utilization) || 0}%</td>
                 </tr>`;
             });
         }
@@ -1332,11 +1346,11 @@ async function wifiScan() {
             tbody.innerHTML = '';
             (d.results || []).forEach(n => {
                 tbody.innerHTML += `<tr>
-                  <td>${n.ssid}</td>
-                  <td><code>${n.bssid}</code></td>
-                  <td>${n.signal} dBm</td>
-                  <td>${n.band}</td>
-                  <td>${n.security}</td>
+                  <td>${escHtml(n.ssid)}</td>
+                  <td><code>${escHtml(n.bssid)}</code></td>
+                  <td>${parseInt(n.signal)} dBm</td>
+                  <td>${escHtml(n.band)}</td>
+                  <td>${escHtml(n.security)}</td>
                 </tr>`;
             });
         }
@@ -1355,6 +1369,11 @@ function wifiOpenEditModal(ssid, idx) {
     document.getElementById('wifi-edit-channel').value = ssid.channel || '';
     document.getElementById('wifi-edit-maxclients').value = ssid.max_clients || '';
     document.getElementById('wifi-edit-modal').style.display = 'flex';
+}
+
+function wifiOpenEditModalByIdx(idx) {
+    const ssids = window._wifiSsids || [];
+    if (ssids[idx]) wifiOpenEditModal(ssids[idx], idx);
 }
 
 function wifiCloseModal() {
@@ -1415,32 +1434,38 @@ function devicesRender(list) {
     tbody.innerHTML = '';
     list.forEach((d,i) => {
         const sigHtml = d.connection_type === 'WiFi' ? signalBars(d.signal) : '<span class="text-muted">—</span>';
+        const connType = d.connection_type === 'WiFi' ? 'wifi' : 'ethernet';
         tbody.innerHTML += `<tr class="dev-row" onclick="devicesToggleDetail(${i})">
-          <td>${d.hostname}</td>
-          <td>${d.ip}</td>
-          <td><code>${d.mac}</code></td>
-          <td><i class="fas fa-${d.connection_type==='WiFi'?'wifi':'ethernet'}" title="${d.connection_type}"></i> ${d.connection_type}</td>
-          <td>${d.ssid || '—'}</td>
+          <td>${escHtml(d.hostname)}</td>
+          <td>${escHtml(d.ip)}</td>
+          <td><code>${escHtml(d.mac)}</code></td>
+          <td><i class="fas fa-${connType}"></i> ${escHtml(d.connection_type)}</td>
+          <td>${escHtml(d.ssid || '—')}</td>
           <td>${sigHtml}</td>
-          <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
-          <td>${d.last_seen}</td>
+          <td><span class="status-badge status-${escHtml(d.status.toLowerCase())}">${escHtml(d.status)}</span></td>
+          <td>${escHtml(d.last_seen)}</td>
           <td>
-            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();devicesBlock('${d.mac}',${!d.blocked})">${d.blocked?'Unblock':'Block'}</button>
+            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();devicesBlockByIdx(${i})">${d.blocked?'Unblock':'Block'}</button>
           </td>
         </tr>
         <tr id="dev-detail-${i}" class="dev-detail-row" style="display:none">
           <td colspan="9">
             <div class="dev-detail-panel">
-              <div><strong>Vendor:</strong> ${d.vendor || 'Unknown'}</div>
-              <div><strong>Lease:</strong> ${d.lease_time || 'N/A'}</div>
-              <div><strong>TX Rate:</strong> ${d.tx_rate || '—'} Mbps</div>
-              <div><strong>RX Rate:</strong> ${d.rx_rate || '—'} Mbps</div>
-              <div><strong>RSSI:</strong> ${d.rssi || '—'} dBm</div>
-              <div><strong>Internet:</strong> <button class="btn btn-warning btn-sm" onclick="devicesBlock('${d.mac}',${!d.blocked})">${d.blocked?'Unblocked':'Block Internet'}</button></div>
+              <div><strong>Vendor:</strong> ${escHtml(d.vendor || 'Unknown')}</div>
+              <div><strong>Lease:</strong> ${escHtml(d.lease_time || 'N/A')}</div>
+              <div><strong>TX Rate:</strong> ${parseInt(d.tx_rate) || '—'} Mbps</div>
+              <div><strong>RX Rate:</strong> ${parseInt(d.rx_rate) || '—'} Mbps</div>
+              <div><strong>RSSI:</strong> ${d.rssi !== null && d.rssi !== undefined ? parseInt(d.rssi) + ' dBm' : '—'}</div>
+              <div><strong>Internet:</strong> <button class="btn btn-warning btn-sm" onclick="devicesBlockByIdx(${i})">${d.blocked?'Unblocked':'Block Internet'}</button></div>
             </div>
           </td>
         </tr>`;
     });
+}
+
+function devicesBlockByIdx(i) {
+    const d = _allDevices[i];
+    if (d) devicesBlock(d.mac, !d.blocked);
 }
 
 function signalBars(sig) {
@@ -1686,8 +1711,20 @@ function aiAppendMessage(text, role, ts) {
     if (!container) return;
     const time = ts || new Date().toLocaleTimeString();
     const div = document.createElement('div');
-    div.className = 'ai-msg ai-msg-' + role;
-    div.innerHTML = `<div class="ai-bubble">${text}</div><div class="ai-ts">${time}</div>`;
+    div.className = 'ai-msg ai-msg-' + (role === 'user' ? 'user' : 'assistant');
+    const bubble = document.createElement('div');
+    bubble.className = 'ai-bubble';
+    // User messages are plain text; assistant messages are rule-based strings (trusted source)
+    if (role === 'user') {
+        bubble.textContent = text;
+    } else {
+        bubble.textContent = text;
+    }
+    const tsDiv = document.createElement('div');
+    tsDiv.className = 'ai-ts';
+    tsDiv.textContent = time;
+    div.appendChild(bubble);
+    div.appendChild(tsDiv);
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     _aiMessages.push({role, text, time});
@@ -1747,17 +1784,21 @@ async function rbacLoadUsers() {
         const tbody = document.getElementById('rbac-users-tbody');
         if (tbody) {
             tbody.innerHTML = '';
-            (d.users || []).forEach(u => {
+            // Cache users for index-based lookups
+            window._rbacUsers = d.users || [];
+            (d.users || []).forEach((u, i) => {
+                const roleLower = u.role.toLowerCase();
+                const validRole = ['admin','operator','viewer'].includes(roleLower) ? roleLower : 'viewer';
                 tbody.innerHTML += `<tr>
-                  <td>${u.username}</td>
-                  <td><span class="role-badge role-${u.role.toLowerCase()}">${u.role}</span></td>
+                  <td>${escHtml(u.username)}</td>
+                  <td><span class="role-badge role-${validRole}">${escHtml(u.role)}</span></td>
                   <td><span class="status-badge status-${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
-                  <td>${u.last_login || 'Never'}</td>
+                  <td>${escHtml(u.last_login || 'Never')}</td>
                   <td>
-                    <select class="form-control form-control-sm" onchange="rbacSetRole('${u.username}',this.value)">
-                      ${['Admin','Operator','Viewer'].map(r => `<option ${r===u.role?'selected':''}>${r}</option>`).join('')}
+                    <select class="form-control form-control-sm" onchange="rbacSetRoleByIdx(${i},this.value)">
+                      ${['Admin','Operator','Viewer'].map(r => `<option${r===u.role?' selected':''}>${r}</option>`).join('')}
                     </select>
-                    <button class="btn btn-${u.active?'warning':'success'} btn-sm" onclick="rbacToggleUser('${u.username}',${!u.active})">${u.active?'Deactivate':'Activate'}</button>
+                    <button class="btn btn-${u.active?'warning':'success'} btn-sm" onclick="rbacToggleByIdx(${i},${!u.active})">${u.active?'Deactivate':'Activate'}</button>
                   </td>
                 </tr>`;
             });
@@ -1768,16 +1809,26 @@ async function rbacLoadUsers() {
 async function rbacSetRole(username, role) {
     try {
         await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'set_role', username, role}) });
-        showNotification(`Role updated for ${username}`, 'success');
+        showNotification(`Role updated for ${escHtml(username)}`, 'success');
     } catch(e) { showNotification('Role update failed', 'error'); }
+}
+
+function rbacSetRoleByIdx(i, role) {
+    const users = window._rbacUsers || [];
+    if (users[i]) rbacSetRole(users[i].username, role);
 }
 
 async function rbacToggleUser(username, active) {
     try {
         await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'toggle', username, active}) });
-        showNotification(`User ${username} ${active?'activated':'deactivated'}`, 'success');
+        showNotification(`User ${escHtml(username)} ${active?'activated':'deactivated'}`, 'success');
         rbacLoadUsers();
     } catch(e) { showNotification('User toggle failed', 'error'); }
+}
+
+function rbacToggleByIdx(i, active) {
+    const users = window._rbacUsers || [];
+    if (users[i]) rbacToggleUser(users[i].username, active);
 }
 
 async function rbacAddUser() {
@@ -1788,7 +1839,7 @@ async function rbacAddUser() {
     try {
         const r = await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'add', username, password, role}) });
         const d = await r.json();
-        showNotification(d.success ? `User ${username} added` : d.error, d.success ? 'success' : 'error');
+        showNotification(d.success ? `User ${escHtml(username)} added` : d.error, d.success ? 'success' : 'error');
         if (d.success) { document.getElementById('rbac-new-username').value = ''; document.getElementById('rbac-new-password').value = ''; rbacLoadUsers(); }
     } catch(e) { showNotification('Add user failed', 'error'); }
 }
@@ -1799,20 +1850,23 @@ async function rbacLoadSession() {
         const d = await r.json();
         const el = document.getElementById('rbac-session-info');
         if (el && d.session) {
-            el.innerHTML = `<div><strong>User:</strong> ${d.session.username}</div>
-                            <div><strong>Role:</strong> <span class="role-badge role-${d.session.role.toLowerCase()}">${d.session.role}</span></div>
-                            <div><strong>Since:</strong> ${d.session.start}</div>
-                            <div><strong>Permissions:</strong> ${d.session.permissions.join(', ')}</div>`;
+            const roleLower = (d.session.role || '').toLowerCase();
+            el.innerHTML = `<div><strong>User:</strong> ${escHtml(d.session.username)}</div>
+                            <div><strong>Role:</strong> <span class="role-badge role-${escHtml(roleLower)}">${escHtml(d.session.role)}</span></div>
+                            <div><strong>Since:</strong> ${escHtml(d.session.start)}</div>
+                            <div><strong>Permissions:</strong> ${escHtml((d.session.permissions || []).join(', '))}</div>`;
         }
         const tbody = document.getElementById('rbac-sessions-tbody');
         if (tbody) {
             tbody.innerHTML = '';
-            (d.sessions || []).forEach(s => {
+            // Cache sessions for index-based revoke
+            window._rbacSessions = d.sessions || [];
+            (d.sessions || []).forEach((s, i) => {
                 tbody.innerHTML += `<tr>
-                  <td>${s.username}</td>
-                  <td>${s.ip}</td>
-                  <td>${s.login_time}</td>
-                  <td><button class="btn btn-danger btn-sm" onclick="rbacRevokeSession('${s.id}')"><i class="fas fa-sign-out-alt"></i> Revoke</button></td>
+                  <td>${escHtml(s.username)}</td>
+                  <td>${escHtml(s.ip)}</td>
+                  <td>${escHtml(s.login_time)}</td>
+                  <td><button class="btn btn-danger btn-sm" onclick="rbacRevokeSessionByIdx(${i})"><i class="fas fa-sign-out-alt"></i> Revoke</button></td>
                 </tr>`;
             });
         }
@@ -1825,6 +1879,11 @@ async function rbacRevokeSession(id) {
         showNotification('Session revoked', 'success');
         rbacLoadSession();
     } catch(e) { showNotification('Revoke failed', 'error'); }
+}
+
+function rbacRevokeSessionByIdx(i) {
+    const sessions = window._rbacSessions || [];
+    if (sessions[i]) rbacRevokeSession(sessions[i].id);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1860,7 +1919,7 @@ function massAddBatchRow() {
 function massRemoveBatchRow(idx) {
     const row = document.getElementById('mass-row-' + idx);
     if (row) row.remove();
-    _massBatchRows[idx] = null;
+    _massBatchRows = _massBatchRows.filter((_, i) => i !== idx);
 }
 
 async function massSubmit() {
@@ -1913,14 +1972,15 @@ async function massLoadHistory() {
         if (tbody) {
             tbody.innerHTML = '';
             (d.history || []).forEach(j => {
+                const statusCls = ['completed','failed','running','queued'].includes(j.status) ? j.status : 'unknown';
                 tbody.innerHTML += `<tr>
-                  <td><code>${j.job_id}</code></td>
-                  <td>${j.type}</td>
-                  <td>${(j.cpes||[]).join(', ')}</td>
-                  <td><span class="status-badge status-${j.status}">${j.status}</span></td>
-                  <td>${j.started}</td>
-                  <td>${j.completed || '—'}</td>
-                  <td>${j.success_count || 0} / ${j.fail_count || 0}</td>
+                  <td><code>${escHtml(j.job_id)}</code></td>
+                  <td>${escHtml(j.type)}</td>
+                  <td>${escHtml((j.cpes||[]).join(', '))}</td>
+                  <td><span class="status-badge status-${statusCls}">${escHtml(j.status)}</span></td>
+                  <td>${escHtml(j.started || '—')}</td>
+                  <td>${escHtml(j.completed || '—')}</td>
+                  <td>${parseInt(j.success_count) || 0} / ${parseInt(j.fail_count) || 0}</td>
                 </tr>`;
             });
         }
@@ -1938,24 +1998,27 @@ async function cpeLoadList() {
     try {
         const r = await fetch('/api/cpes');
         const d = await r.json();
+        // Cache CPE list for index-based actions
+        window._cpeList = d.cpes || [];
         // Registry table
         const tbody = document.getElementById('cpe-registry-tbody');
         if (tbody) {
             tbody.innerHTML = '';
-            (d.cpes || []).forEach(c => {
+            (d.cpes || []).forEach((c, i) => {
+                const statusCls = c.status.toLowerCase() === 'online' ? 'active' : 'inactive';
                 tbody.innerHTML += `<tr>
-                  <td><code>${c.id}</code></td>
-                  <td>${c.serial}</td>
-                  <td>${c.model}</td>
-                  <td>${c.firmware}</td>
-                  <td>${c.ip}</td>
-                  <td><code>${c.agent_id}</code></td>
-                  <td><span class="status-badge status-${c.status.toLowerCase()}">${c.status}</span></td>
-                  <td>${c.last_seen}</td>
+                  <td><code>${escHtml(c.id)}</code></td>
+                  <td>${escHtml(c.serial)}</td>
+                  <td>${escHtml(c.model)}</td>
+                  <td>${escHtml(c.firmware)}</td>
+                  <td>${escHtml(c.ip)}</td>
+                  <td><code>${escHtml(c.agent_id)}</code></td>
+                  <td><span class="status-badge status-${statusCls}">${escHtml(c.status)}</span></td>
+                  <td>${escHtml(c.last_seen)}</td>
                   <td>
-                    <button class="btn btn-primary btn-sm" onclick="cpeConnect('${c.id}')"><i class="fas fa-plug"></i> Connect</button>
-                    <button class="btn btn-info btn-sm" onclick="cpeViewDetails('${c.id}')"><i class="fas fa-info-circle"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="cpeRemove('${c.id}')"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-primary btn-sm" onclick="cpeConnectByIdx(${i})"><i class="fas fa-plug"></i> Connect</button>
+                    <button class="btn btn-info btn-sm" onclick="cpeViewDetails(${i})"><i class="fas fa-info-circle"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="cpeRemoveByIdx(${i})"><i class="fas fa-trash"></i></button>
                   </td>
                 </tr>`;
             });
@@ -1964,18 +2027,19 @@ async function cpeLoadList() {
         const grid = document.getElementById('cpe-dashboard-grid');
         if (grid) {
             grid.innerHTML = '';
-            (d.cpes || []).forEach(c => {
-                grid.innerHTML += `<div class="cpe-card cpe-card-${c.status.toLowerCase()}">
+            (d.cpes || []).forEach((c, i) => {
+                const statusCls = c.status.toLowerCase() === 'online' ? 'online' : 'offline';
+                grid.innerHTML += `<div class="cpe-card cpe-card-${statusCls}">
                   <div class="cpe-card-header">
                     <span class="cpe-status-dot"></span>
-                    <strong>${c.friendly_name || c.serial}</strong>
+                    <strong>${escHtml(c.friendly_name || c.serial)}</strong>
                   </div>
                   <div class="cpe-card-body">
-                    <div><i class="fas fa-barcode"></i> ${c.serial}</div>
-                    <div><i class="fas fa-microchip"></i> ${c.model}</div>
-                    <div><i class="fas fa-network-wired"></i> ${c.ip}</div>
+                    <div><i class="fas fa-barcode"></i> ${escHtml(c.serial)}</div>
+                    <div><i class="fas fa-microchip"></i> ${escHtml(c.model)}</div>
+                    <div><i class="fas fa-network-wired"></i> ${escHtml(c.ip)}</div>
                   </div>
-                  <button class="btn btn-primary btn-sm w-100 mt-2" onclick="cpeConnect('${c.id}')"><i class="fas fa-plug"></i> Connect</button>
+                  <button class="btn btn-primary btn-sm w-100 mt-2" onclick="cpeConnectByIdx(${i})"><i class="fas fa-plug"></i> Connect</button>
                 </div>`;
             });
         }
@@ -1985,7 +2049,11 @@ async function cpeLoadList() {
             const current = sel.value;
             sel.innerHTML = '<option value="">— Select Active CPE —</option>';
             (d.cpes || []).forEach(c => {
-                sel.innerHTML += `<option value="${c.id}" ${c.id===current?'selected':''}>${c.friendly_name || c.serial}</option>`;
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.friendly_name || c.serial;
+                if (c.id === current) opt.selected = true;
+                sel.appendChild(opt);
             });
         }
         // Mass actions CPE list
@@ -1993,12 +2061,28 @@ async function cpeLoadList() {
         if (massContainer) {
             massContainer.innerHTML = '';
             (d.cpes || []).forEach(c => {
-                massContainer.innerHTML += `<label class="mass-cpe-item">
-                  <input type="checkbox" class="mass-cpe-checkbox" value="${c.id}"> ${c.friendly_name || c.serial}
-                </label>`;
+                const label = document.createElement('label');
+                label.className = 'mass-cpe-item';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'mass-cpe-checkbox';
+                cb.value = c.id;
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + (c.friendly_name || c.serial)));
+                massContainer.appendChild(label);
             });
         }
     } catch(e) { console.error('CPE list error', e); }
+}
+
+function cpeConnectByIdx(i) {
+    const cpes = window._cpeList || [];
+    if (cpes[i]) cpeConnect(cpes[i].id);
+}
+
+function cpeRemoveByIdx(i) {
+    const cpes = window._cpeList || [];
+    if (cpes[i]) cpeRemove(cpes[i].id);
 }
 
 async function cpeAdd() {
@@ -2110,6 +2194,7 @@ document.addEventListener('DOMContentLoaded', function() {
 window.wifiLoadStatus = wifiLoadStatus;
 window.wifiScan = wifiScan;
 window.wifiOpenEditModal = wifiOpenEditModal;
+window.wifiOpenEditModalByIdx = wifiOpenEditModalByIdx;
 window.wifiCloseModal = wifiCloseModal;
 window.wifiSaveEdit = wifiSaveEdit;
 window.wifiToggleSsid = wifiToggleSsid;
@@ -2117,6 +2202,7 @@ window.devicesLoad = devicesLoad;
 window.devicesFilter = devicesFilter;
 window.devicesSearch = devicesSearch;
 window.devicesBlock = devicesBlock;
+window.devicesBlockByIdx = devicesBlockByIdx;
 window.devicesToggleDetail = devicesToggleDetail;
 window.diagRunPing = diagRunPing;
 window.diagRunTraceroute = diagRunTraceroute;
@@ -2132,8 +2218,11 @@ window.aiClearChat = aiClearChat;
 window.rbacLoadUsers = rbacLoadUsers;
 window.rbacAddUser = rbacAddUser;
 window.rbacSetRole = rbacSetRole;
+window.rbacSetRoleByIdx = rbacSetRoleByIdx;
 window.rbacToggleUser = rbacToggleUser;
+window.rbacToggleByIdx = rbacToggleByIdx;
 window.rbacRevokeSession = rbacRevokeSession;
+window.rbacRevokeSessionByIdx = rbacRevokeSessionByIdx;
 window.massSelectType = massSelectType;
 window.massAddBatchRow = massAddBatchRow;
 window.massRemoveBatchRow = massRemoveBatchRow;
@@ -2144,6 +2233,8 @@ window.cpeLoadList = cpeLoadList;
 window.cpeAdd = cpeAdd;
 window.cpeRemove = cpeRemove;
 window.cpeConnect = cpeConnect;
+window.cpeConnectByIdx = cpeConnectByIdx;
+window.cpeRemoveByIdx = cpeRemoveByIdx;
 window.cpeSwitchActive = cpeSwitchActive;
 window.cpeCompare = cpeCompare;
 window.cpeFilterByTag = cpeFilterByTag;
