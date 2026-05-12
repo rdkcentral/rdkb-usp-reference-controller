@@ -2241,3 +2241,206 @@ body {
 .stats-bar-item .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-accent); }
 .stats-bar-item .stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; }
 
+/* New feature surfaces */
+.nav-inline-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: var(--error);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    padding: 0 6px;
+}
+.feature-notice {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--warning);
+    background: rgba(251, 191, 36, 0.1);
+    color: #fcd34d;
+}
+.feature-note { color: var(--text-secondary); font-size: 12px; }
+.feature-empty { color: var(--text-secondary); text-align: center; padding: 16px; }
+.mini-pill {
+    padding: 4px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+}
+.metrics-card {
+    min-height: 250px;
+}
+.metrics-card canvas { width: 100% !important; height: 180px !important; background: rgba(0,0,0,0); }
+.metric-current { color: var(--text-accent); margin-left: 6px; }
+.metric-trend { color: var(--text-secondary); margin-left: 2px; }
+
+.two-column-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+}
+.three-column-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+.alerts-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+.alert-card {
+    border-radius: var(--radius-md);
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--tertiary-bg);
+}
+.alert-info { border-left: 3px solid #0ea5e9; }
+.alert-warning { border-left: 3px solid #fbbf24; }
+.alert-critical { border-left: 3px solid #ef4444; }
+
+.fleet-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+.fleet-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+}
+.fleet-card {
+    background: var(--tertiary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px;
+}
+.fleet-card.online { border-left: 3px solid var(--success); }
+.fleet-card.offline { border-left: 3px solid var(--error); }
+.fleet-card-title { font-weight: 700; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.status-dot.on { background: var(--success); }
+.status-dot.off { background: var(--error); }
+.fleet-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+.wifi-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.wifi-radio-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.inline-form-card {
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    background: var(--tertiary-bg);
+}
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+.simple-list { display: flex; flex-direction: column; gap: 8px; }
+.simple-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--tertiary-bg);
+}
+
+.mesh-controller-card {
+    background: linear-gradient(135deg, rgba(0,119,255,0.2), rgba(0,198,255,0.08));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 10px;
+}
+.mesh-agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px;
+}
+.mesh-agent-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    background: var(--tertiary-bg);
+}
+.mesh-map {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--secondary-bg);
+    min-height: 280px;
+    overflow: auto;
+}
+.mesh-node-details {
+    margin-top: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    background: var(--tertiary-bg);
+    white-space: pre-wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+.mesh-events-log {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    max-height: 180px;
+    overflow: auto;
+    padding: 10px;
+    background: var(--tertiary-bg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+.topology-main-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 1fr) 320px;
+    gap: 12px;
+}
+.topology-network {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    min-height: 420px;
+    background: var(--secondary-bg);
+}
+.topology-details {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    background: var(--tertiary-bg);
+    white-space: pre-wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    overflow: auto;
+}
+.row-up td { background: rgba(0, 229, 160, 0.08); }
+.row-down td { background: rgba(255, 71, 87, 0.08); }
+
+@media (max-width: 1200px) {
+    .topology-main-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .metrics-grid, .fleet-cards-grid, .wifi-overview-grid, .mesh-agent-grid { grid-template-columns: 1fr; }
+}
