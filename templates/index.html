@@ -363,6 +363,14 @@
         <a class="nav-item" href="#section-modules"    data-section="section-modules"    onclick="showSection('section-modules')"    role="button" tabindex="0"><i class="fas fa-server"></i> SW Modules</a>
         <a class="nav-item" href="#section-iot"        data-section="section-iot"        onclick="showSection('section-iot')"        role="button" tabindex="0"><i class="fas fa-microchip"></i> IoT Devices</a>
         <a class="nav-item" href="#section-events"     data-section="section-events"     onclick="showSection('section-events')"     role="button" tabindex="0"><i class="fas fa-bell"></i> USP Events</a>
+        <a class="nav-item" href="#section-wifi"         data-section="section-wifi"         onclick="showSection('section-wifi')"         role="button" tabindex="0"><i class="fas fa-wifi"></i> WiFi</a>
+        <a class="nav-item" href="#section-devices"      data-section="section-devices"      onclick="showSection('section-devices')"      role="button" tabindex="0"><i class="fas fa-laptop"></i> Connected Devices</a>
+        <a class="nav-item" href="#section-diagnostics"  data-section="section-diagnostics"  onclick="showSection('section-diagnostics')"  role="button" tabindex="0"><i class="fas fa-stethoscope"></i> Diagnostics</a>
+        <a class="nav-item" href="#section-location"     data-section="section-location"     onclick="showSection('section-location')"     role="button" tabindex="0"><i class="fas fa-map-marker-alt"></i> Location</a>
+        <a class="nav-item" href="#section-ai"           data-section="section-ai"           onclick="showSection('section-ai')"           role="button" tabindex="0"><i class="fas fa-robot"></i> AI Assistant</a>
+        <a class="nav-item" href="#section-rbac"         data-section="section-rbac"         onclick="showSection('section-rbac')"         role="button" tabindex="0"><i class="fas fa-shield-alt"></i> Access Control</a>
+        <a class="nav-item" href="#section-mass-actions" data-section="section-mass-actions" onclick="showSection('section-mass-actions')" role="button" tabindex="0"><i class="fas fa-layer-group"></i> Mass Actions</a>
+        <a class="nav-item" href="#section-cpe"          data-section="section-cpe"          onclick="showSection('section-cpe')"          role="button" tabindex="0"><i class="fas fa-network-wired"></i> Multi-CPE</a>
       </nav>
     </aside>
 
@@ -1399,6 +1407,637 @@
                 </div>
             </section>
       </div><!-- end section-events -->
+
+      <!-- ── WiFi Management Section ──────────────────────────────────── -->
+      <div id="section-wifi" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-wifi"></i> WiFi Management</h2>
+          <p>Manage radios, SSIDs and view wireless statistics</p>
+        </div>
+
+        <!-- Radio Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px;">
+          <div id="wifi-radio-2g" class="wifi-radio-card">
+            <div class="wifi-radio-header">
+              <span class="panel-title"><i class="fas fa-broadcast-tower"></i> 2.4 GHz Radio</span>
+              <input type="checkbox" class="wifi-toggle" id="wifi-toggle-2g" title="Enable/Disable 2.4GHz Radio">
+            </div>
+            <div class="wifi-radio-stats">
+              <div class="wifi-radio-stat"><div class="label">Channel</div><div class="value wifi-radio-channel">—</div></div>
+              <div class="wifi-radio-stat"><div class="label">Bandwidth</div><div class="value wifi-radio-bw">—</div></div>
+              <div class="wifi-radio-stat"><div class="label">TX Power</div><div class="value wifi-radio-txpower">—</div></div>
+            </div>
+          </div>
+          <div id="wifi-radio-5g" class="wifi-radio-card">
+            <div class="wifi-radio-header">
+              <span class="panel-title"><i class="fas fa-broadcast-tower"></i> 5 GHz Radio</span>
+              <input type="checkbox" class="wifi-toggle" id="wifi-toggle-5g" title="Enable/Disable 5GHz Radio">
+            </div>
+            <div class="wifi-radio-stats">
+              <div class="wifi-radio-stat"><div class="label">Channel</div><div class="value wifi-radio-channel">—</div></div>
+              <div class="wifi-radio-stat"><div class="label">Bandwidth</div><div class="value wifi-radio-bw">—</div></div>
+              <div class="wifi-radio-stat"><div class="label">TX Power</div><div class="value wifi-radio-txpower">—</div></div>
+            </div>
+          </div>
+          <div id="wifi-radio-6g" class="wifi-radio-card">
+            <div class="wifi-radio-header">
+              <span class="panel-title"><i class="fas fa-broadcast-tower"></i> 6 GHz Radio</span>
+              <input type="checkbox" class="wifi-toggle" id="wifi-toggle-6g" title="Enable/Disable 6GHz Radio">
+            </div>
+            <div class="wifi-radio-stats">
+              <div class="wifi-radio-stat"><div class="label">Channel</div><div class="value wifi-radio-channel">—</div></div>
+              <div class="wifi-radio-stat"><div class="label">Bandwidth</div><div class="value wifi-radio-bw">—</div></div>
+              <div class="wifi-radio-stat"><div class="label">TX Power</div><div class="value wifi-radio-txpower">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SSID Table -->
+        <section class="panel full-width">
+          <div class="panel-title"><i class="fas fa-list"></i> SSID Management</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead><tr><th>#</th><th>SSID Name</th><th>Band</th><th>Security</th><th>Enabled</th><th>Clients</th><th>Actions</th></tr></thead>
+              <tbody id="wifi-ssid-tbody"><tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary mt-2" onclick="wifiLoadStatus()"><i class="fas fa-sync"></i> Refresh</button>
+        </section>
+
+        <!-- WiFi Stats -->
+        <section class="panel full-width">
+          <div class="panel-title"><i class="fas fa-chart-bar"></i> WiFi Statistics</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead><tr><th>Radio</th><th>TX Bytes</th><th>RX Bytes</th><th>Errors</th><th>Utilization</th></tr></thead>
+              <tbody id="wifi-stats-tbody"><tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Scan -->
+        <section class="panel full-width">
+          <div class="panel-title"><i class="fas fa-search"></i> Network Scan</div>
+          <button id="wifi-scan-btn" class="btn btn-info" onclick="wifiScan()"><i class="fas fa-search"></i> Scan for Networks</button>
+          <div id="wifi-scan-results" style="display:none;margin-top:14px;">
+            <table class="module-table">
+              <thead><tr><th>SSID</th><th>BSSID</th><th>Signal</th><th>Band</th><th>Security</th></tr></thead>
+              <tbody id="wifi-scan-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SSID Edit Modal -->
+        <div id="wifi-edit-modal" class="modal-overlay" style="display:none;">
+          <div class="modal-box">
+            <div class="modal-header">
+              <h3><i class="fas fa-edit"></i> Edit SSID</h3>
+              <button class="modal-close" onclick="wifiCloseModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <input type="hidden" id="wifi-edit-idx">
+            <div class="form-group"><label>SSID Name</label><input class="form-control" id="wifi-edit-ssid" placeholder="MyNetwork"></div>
+            <div class="form-group"><label>Password</label><input class="form-control" type="password" id="wifi-edit-password" placeholder="••••••••"></div>
+            <div class="form-group"><label>Security Mode</label>
+              <select class="form-control" id="wifi-edit-security">
+                <option>WPA2-Personal</option><option>WPA3-Personal</option><option>WPA2/WPA3</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Band</label>
+              <select class="form-control" id="wifi-edit-band">
+                <option>2.4GHz</option><option>5GHz</option><option>6GHz</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Channel</label><input class="form-control" id="wifi-edit-channel" placeholder="Auto"></div>
+            <div class="form-group"><label>Max Clients</label><input class="form-control" type="number" id="wifi-edit-maxclients" placeholder="32"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+              <button class="btn btn-primary" onclick="wifiSaveEdit()"><i class="fas fa-save"></i> Save</button>
+              <button class="btn btn-warning" onclick="wifiCloseModal()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- end section-wifi -->
+
+      <!-- ── Connected Devices Section ──────────────────────────────────── -->
+      <div id="section-devices" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-laptop"></i> Connected Devices</h2>
+          <p>View and manage all LAN and WiFi connected devices</p>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stats-bar">
+          <div class="stats-bar-item"><div class="stat-value" id="dev-total">—</div><div class="stat-label">Total Devices</div></div>
+          <div class="stats-bar-item"><div class="stat-value" id="dev-wifi">—</div><div class="stat-label">WiFi</div></div>
+          <div class="stats-bar-item"><div class="stat-value" id="dev-wired">—</div><div class="stat-label">Wired</div></div>
+          <div class="stats-bar-item"><div class="stat-value" id="dev-active">—</div><div class="stat-label">Active Now</div></div>
+        </div>
+
+        <!-- Filter & Search -->
+        <section class="panel full-width">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="dev-filter-btn active" data-filter="All" onclick="devicesFilter('All')">All</button>
+              <button class="dev-filter-btn" data-filter="WiFi" onclick="devicesFilter('WiFi')"><i class="fas fa-wifi"></i> WiFi</button>
+              <button class="dev-filter-btn" data-filter="Wired" onclick="devicesFilter('Wired')"><i class="fas fa-ethernet"></i> Wired</button>
+              <button class="dev-filter-btn" data-filter="Active" onclick="devicesFilter('Active')">Active</button>
+              <button class="dev-filter-btn" data-filter="Inactive" onclick="devicesFilter('Inactive')">Inactive</button>
+            </div>
+            <input class="form-control" style="max-width:260px;" placeholder="Search hostname, MAC, IP…" oninput="devicesSearch(this.value)">
+            <button class="btn btn-primary" onclick="devicesLoad()"><i class="fas fa-sync"></i> Refresh</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead>
+                <tr>
+                  <th>Hostname</th><th>IP</th><th>MAC</th><th>Type</th><th>SSID</th>
+                  <th>Signal</th><th>Status</th><th>Last Seen</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="devices-tbody">
+                <tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">Click Refresh to load devices</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div><!-- end section-devices -->
+
+      <!-- ── Diagnostics Section ──────────────────────────────────────── -->
+      <div id="section-diagnostics" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-stethoscope"></i> Diagnostics</h2>
+          <p>Run network diagnostics and health checks</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">
+          <!-- Ping -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-paper-plane"></i> Ping Test</div>
+            <div class="form-group"><label>Target Host</label><input class="form-control" id="diag-ping-host" placeholder="8.8.8.8 or hostname"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div class="form-group"><label>Packet Count</label><input class="form-control" id="diag-ping-count" type="number" min="1" max="100" value="4"></div>
+              <div class="form-group"><label>Packet Size</label><input class="form-control" id="diag-ping-size" type="number" value="64"></div>
+            </div>
+            <button id="diag-ping-btn" class="btn btn-primary" onclick="diagRunPing()"><i class="fas fa-paper-plane"></i> Run Ping</button>
+            <div id="diag-ping-results" style="display:none;margin-top:14px;"></div>
+          </section>
+
+          <!-- Traceroute -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-route"></i> Traceroute</div>
+            <div class="form-group"><label>Target Host</label><input class="form-control" id="diag-trace-host" placeholder="google.com"></div>
+            <div class="form-group"><label>Max Hops</label><input class="form-control" id="diag-trace-hops" type="number" value="30" min="1" max="64"></div>
+            <button id="diag-trace-btn" class="btn btn-primary" onclick="diagRunTraceroute()"><i class="fas fa-route"></i> Run Traceroute</button>
+            <div id="diag-trace-results" style="display:none;margin-top:14px;overflow-x:auto;">
+              <table class="module-table">
+                <thead><tr><th>Hop</th><th>Hostname</th><th>IP</th><th>RTT1</th><th>RTT2</th><th>RTT3</th></tr></thead>
+                <tbody id="diag-trace-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- DNS -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-server"></i> DNS Lookup</div>
+            <div class="form-group"><label>Domain</label><input class="form-control" id="diag-dns-domain" placeholder="example.com"></div>
+            <div class="form-group"><label>DNS Server (optional)</label><input class="form-control" id="diag-dns-server" placeholder="8.8.8.8"></div>
+            <button id="diag-dns-btn" class="btn btn-primary" onclick="diagRunDns()"><i class="fas fa-search"></i> Lookup</button>
+            <div id="diag-dns-results" style="display:none;margin-top:14px;background:var(--tertiary-bg);padding:12px;border-radius:var(--radius-sm);"></div>
+          </section>
+
+          <!-- Speed Test -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-tachometer-alt"></i> Speed Test</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <button id="diag-speed-download-btn" class="btn btn-success" onclick="diagRunSpeedTest('download')"><i class="fas fa-arrow-down"></i> Test Download</button>
+              <button id="diag-speed-upload-btn" class="btn btn-info" onclick="diagRunSpeedTest('upload')"><i class="fas fa-arrow-up"></i> Test Upload</button>
+            </div>
+            <div id="diag-speed-bar-download" class="diag-progress"><div class="diag-progress-fill"></div></div>
+            <div id="diag-speed-result-download" style="display:none;margin-bottom:8px;padding:8px;background:var(--tertiary-bg);border-radius:var(--radius-sm);"></div>
+            <div id="diag-speed-bar-upload" class="diag-progress"><div class="diag-progress-fill"></div></div>
+            <div id="diag-speed-result-upload" style="display:none;padding:8px;background:var(--tertiary-bg);border-radius:var(--radius-sm);"></div>
+          </section>
+        </div>
+
+        <!-- Network Health -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-heartbeat"></i> Network Health</div>
+          <div class="diag-health-grid">
+            <div id="diag-health-wan-connectivity" class="diag-health-tile diag-health-ok">
+              <div class="diag-health-name"><i class="fas fa-globe"></i> WAN Connectivity</div>
+              <div class="diag-health-status">CHECKING…</div>
+            </div>
+            <div id="diag-health-dns-resolution" class="diag-health-tile diag-health-ok">
+              <div class="diag-health-name"><i class="fas fa-server"></i> DNS Resolution</div>
+              <div class="diag-health-status">CHECKING…</div>
+            </div>
+            <div id="diag-health-gateway-reachability" class="diag-health-tile diag-health-ok">
+              <div class="diag-health-name"><i class="fas fa-network-wired"></i> Gateway</div>
+              <div class="diag-health-status">CHECKING…</div>
+            </div>
+            <div id="diag-health-internet-reachability" class="diag-health-tile diag-health-ok">
+              <div class="diag-health-name"><i class="fas fa-cloud"></i> Internet</div>
+              <div class="diag-health-status">CHECKING…</div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-2" onclick="diagLoadHealth()"><i class="fas fa-sync"></i> Refresh Health</button>
+        </section>
+      </div><!-- end section-diagnostics -->
+
+      <!-- ── Location Section ──────────────────────────────────────────── -->
+      <div id="section-location" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-map-marker-alt"></i> Location</h2>
+          <p>Device location, timezone and ISP information</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;">
+          <!-- Location Form -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-map-marker-alt"></i> Device Location</div>
+            <div class="form-group"><label>Street Address</label><input class="form-control" id="loc-street" placeholder="123 Main St"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div class="form-group"><label>City</label><input class="form-control" id="loc-city" placeholder="City"></div>
+              <div class="form-group"><label>Country</label><input class="form-control" id="loc-country" placeholder="US"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+              <div class="form-group"><label>Latitude</label><input class="form-control" id="loc-latitude" placeholder="37.7749"></div>
+              <div class="form-group"><label>Longitude</label><input class="form-control" id="loc-longitude" placeholder="-122.4194"></div>
+              <div class="form-group"><label>Postal Code</label><input class="form-control" id="loc-postal-code" placeholder="94105"></div>
+            </div>
+            <button class="btn btn-primary" onclick="locationSave()"><i class="fas fa-save"></i> Save Location</button>
+          </section>
+
+          <!-- Map Placeholder -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-map"></i> Map</div>
+            <div class="map-placeholder">
+              <i class="fas fa-map-marked-alt"></i>
+              <span id="loc-map-coords">No coordinates set</span>
+            </div>
+            <div style="margin-top:12px;text-align:center;">
+              <a id="loc-map-link" href="#" target="_blank" class="btn btn-info"><i class="fas fa-external-link-alt"></i> Open in Maps</a>
+            </div>
+          </section>
+
+          <!-- Timezone -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-clock"></i> Timezone &amp; Locale</div>
+            <div class="form-group"><label>Timezone</label>
+              <select class="form-control" id="loc-timezone">
+                <option>UTC</option><option>America/New_York</option><option>America/Chicago</option>
+                <option>America/Denver</option><option>America/Los_Angeles</option>
+                <option>Europe/London</option><option>Europe/Paris</option><option>Europe/Berlin</option>
+                <option>Asia/Tokyo</option><option>Asia/Shanghai</option><option>Asia/Kolkata</option>
+                <option>Australia/Sydney</option><option>Pacific/Auckland</option>
+              </select>
+            </div>
+            <div class="form-group"><label>NTP Primary</label><input class="form-control" id="loc-ntp1" placeholder="pool.ntp.org"></div>
+            <div class="form-group"><label>NTP Secondary</label><input class="form-control" id="loc-ntp2" placeholder="time.google.com"></div>
+            <div class="form-group"><label>Locale</label>
+              <select class="form-control" id="loc-locale">
+                <option value="en_US">English (US)</option><option value="en_GB">English (UK)</option>
+                <option value="fr_FR">Français</option><option value="de_DE">Deutsch</option>
+                <option value="es_ES">Español</option><option value="ja_JP">日本語</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="locationSaveTimezone()"><i class="fas fa-save"></i> Save</button>
+          </section>
+
+          <!-- ISP Info -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-building"></i> ISP Information</div>
+            <div class="isp-info-grid">
+              <div class="isp-info-item"><div class="label">ISP Name</div><div class="value" id="loc-isp-name">—</div></div>
+              <div class="isp-info-item"><div class="label">AS Number</div><div class="value" id="loc-isp-asn">—</div></div>
+              <div class="isp-info-item"><div class="label">Region</div><div class="value" id="loc-isp-region">—</div></div>
+            </div>
+            <button class="btn btn-primary mt-2" onclick="locationLoad()"><i class="fas fa-sync"></i> Refresh</button>
+          </section>
+        </div>
+      </div><!-- end section-location -->
+
+      <!-- ── AI Assistant Section ──────────────────────────────────────── -->
+      <div id="section-ai" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-robot"></i> AI Assistant</h2>
+          <p>Intelligent assistant for RDK-B device management</p>
+        </div>
+
+        <section class="panel full-width">
+          <!-- Quick prompt chips -->
+          <div class="ai-chips">
+            <button class="ai-chip" onclick="aiSendChip('Explain WiFi status')"><i class="fas fa-wifi"></i> Explain WiFi status</button>
+            <button class="ai-chip" onclick="aiSendChip('Show connected devices summary')"><i class="fas fa-laptop"></i> Connected devices summary</button>
+            <button class="ai-chip" onclick="aiSendChip('Run ping to 8.8.8.8')"><i class="fas fa-paper-plane"></i> Ping 8.8.8.8</button>
+            <button class="ai-chip" onclick="aiSendChip('Diagnose network issues')"><i class="fas fa-stethoscope"></i> Diagnose network</button>
+            <button class="ai-chip" onclick="aiSendChip('What USP events occurred?')"><i class="fas fa-bell"></i> USP events</button>
+            <button class="ai-chip" onclick="aiSendChip('Summarize device health')"><i class="fas fa-heartbeat"></i> Device health</button>
+          </div>
+
+          <!-- Chat messages -->
+          <div class="ai-chat-container">
+            <div class="ai-messages" id="ai-messages">
+              <div class="ai-msg ai-msg-assistant">
+                <div class="ai-bubble">👋 Hello! I'm your RDK-B AI assistant. Ask me anything about your device's WiFi, connected devices, diagnostics, USP events, or data model.</div>
+                <div class="ai-ts">Now</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="ai-input-row">
+            <input class="form-control" id="ai-input" placeholder="Ask a question about your device…">
+            <button class="btn btn-primary" onclick="aiSendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
+            <button class="btn btn-warning" onclick="aiClearChat()" title="Clear chat"><i class="fas fa-trash"></i></button>
+          </div>
+        </section>
+      </div><!-- end section-ai -->
+
+      <!-- ── RBAC Section ───────────────────────────────────────────────── -->
+      <div id="section-rbac" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-shield-alt"></i> Access Control</h2>
+          <p>Role-based access control and session management</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;">
+          <!-- Current Session -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-user-circle"></i> Current Session</div>
+            <div id="rbac-session-info" style="font-size:14px;line-height:2;">
+              <div><strong>User:</strong> admin</div>
+              <div><strong>Role:</strong> <span class="role-badge role-admin">Admin</span></div>
+              <div><strong>Permissions:</strong> All</div>
+            </div>
+          </section>
+
+          <!-- Add User -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-user-plus"></i> Add User</div>
+            <div class="form-group"><label>Username</label><input class="form-control" id="rbac-new-username" placeholder="username"></div>
+            <div class="form-group"><label>Password</label><input class="form-control" type="password" id="rbac-new-password" placeholder="••••••••"></div>
+            <div class="form-group"><label>Role</label>
+              <select class="form-control" id="rbac-new-role">
+                <option>Admin</option><option>Operator</option><option selected>Viewer</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="rbacAddUser()"><i class="fas fa-user-plus"></i> Add User</button>
+          </section>
+        </div>
+
+        <!-- Users Table -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-users"></i> Users</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+              <tbody id="rbac-users-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Role Definitions -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-id-badge"></i> Role Definitions</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+            <div class="role-card">
+              <div class="role-card-icon" style="color:var(--error)"><i class="fas fa-crown"></i></div>
+              <div class="role-card-title">Admin</div>
+              <div class="role-card-desc">Full access to all features and settings</div>
+              <ul style="color:var(--text-secondary);font-size:12px;padding-left:16px;margin:0;">
+                <li>Manage users &amp; roles</li><li>All parameter operations</li><li>Mass actions</li><li>All sections</li>
+              </ul>
+            </div>
+            <div class="role-card">
+              <div class="role-card-icon" style="color:var(--warning)"><i class="fas fa-user-cog"></i></div>
+              <div class="role-card-title">Operator</div>
+              <div class="role-card-desc">Operational access, no user management</div>
+              <ul style="color:var(--text-secondary);font-size:12px;padding-left:16px;margin:0;">
+                <li>WiFi management</li><li>Diagnostics</li><li>Connected devices</li><li>Read parameters</li>
+              </ul>
+            </div>
+            <div class="role-card">
+              <div class="role-card-icon" style="color:var(--text-accent)"><i class="fas fa-eye"></i></div>
+              <div class="role-card-title">Viewer</div>
+              <div class="role-card-desc">Read-only access to dashboards</div>
+              <ul style="color:var(--text-secondary);font-size:12px;padding-left:16px;margin:0;">
+                <li>Dashboard view</li><li>Read parameters</li><li>View events</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Permissions Matrix -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-table"></i> Permissions Matrix</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table rbac-matrix-table">
+              <thead><tr><th>Feature</th><th>Admin</th><th>Operator</th><th>Viewer</th></tr></thead>
+              <tbody>
+                <tr><td>Dashboard</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-check rbac-perm-ok"></i></td></tr>
+                <tr><td>WiFi Management</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td></tr>
+                <tr><td>Connected Devices</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-check rbac-perm-ok"></i></td></tr>
+                <tr><td>Diagnostics</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td></tr>
+                <tr><td>Parameter Set</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td></tr>
+                <tr><td>Mass Actions</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td></tr>
+                <tr><td>User Management</td><td><i class="fas fa-check rbac-perm-ok"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td><td><i class="fas fa-times rbac-perm-no"></i></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Active Sessions -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-desktop"></i> Active Sessions</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead><tr><th>User</th><th>IP</th><th>Login Time</th><th>Actions</th></tr></thead>
+              <tbody id="rbac-sessions-tbody">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div><!-- end section-rbac -->
+
+      <!-- ── Mass Actions Section ───────────────────────────────────────── -->
+      <div id="section-mass-actions" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-layer-group"></i> Mass Actions</h2>
+          <p>Perform bulk operations across multiple CPEs</p>
+        </div>
+
+        <!-- Action Type Selector -->
+        <section class="panel full-width">
+          <div class="panel-title"><i class="fas fa-tasks"></i> Action Type</div>
+          <div class="mass-type-bar">
+            <button class="mass-type-btn active" data-type="batch_set" onclick="massSelectType('batch_set')"><i class="fas fa-sliders-h"></i> Parameter Batch Set</button>
+            <button class="mass-type-btn" data-type="firmware" onclick="massSelectType('firmware')"><i class="fas fa-upload"></i> Firmware Update</button>
+            <button class="mass-type-btn" data-type="reboot" onclick="massSelectType('reboot')"><i class="fas fa-redo"></i> Reboot</button>
+            <button class="mass-type-btn" data-type="factory_reset" onclick="massSelectType('factory_reset')"><i class="fas fa-trash-alt"></i> Factory Reset</button>
+            <button class="mass-type-btn" data-type="config_push" onclick="massSelectType('config_push')"><i class="fas fa-cloud-upload-alt"></i> Config Push</button>
+          </div>
+        </section>
+
+        <div style="display:grid;grid-template-columns:260px 1fr;gap:16px;margin-top:0;">
+          <!-- CPE Selection -->
+          <section class="panel">
+            <div class="panel-title"><i class="fas fa-server"></i> Target CPEs</div>
+            <div style="margin-bottom:8px;display:flex;gap:6px;">
+              <button class="btn btn-primary btn-sm" onclick="massSelectAllCpes(true)">Select All</button>
+              <button class="btn btn-warning btn-sm" onclick="massSelectAllCpes(false)">Deselect All</button>
+            </div>
+            <div id="mass-cpe-list" class="mass-cpe-list">
+              <div style="color:var(--text-secondary);text-align:center;padding:16px;">No CPEs registered</div>
+            </div>
+          </section>
+
+          <!-- Action Panels -->
+          <div>
+            <!-- Batch Set Panel -->
+            <section id="mass-panel-batch-set" class="panel mass-panel">
+              <div class="panel-title"><i class="fas fa-sliders-h"></i> Parameter Batch Set</div>
+              <div id="mass-batch-rows"></div>
+              <button class="btn btn-primary btn-sm mb-2" onclick="massAddBatchRow()"><i class="fas fa-plus"></i> Add Parameter</button>
+              <br>
+              <button class="btn btn-success" onclick="massSubmit()"><i class="fas fa-rocket"></i> Apply to Selected CPEs</button>
+            </section>
+
+            <!-- Firmware Panel -->
+            <section id="mass-panel-firmware" class="panel mass-panel" style="display:none;">
+              <div class="panel-title"><i class="fas fa-upload"></i> Firmware Update</div>
+              <div class="form-group"><label>Firmware URL</label><input class="form-control" id="mass-fw-url" placeholder="http://firmware.server/image.bin"></div>
+              <div class="form-group"><label>Checksum (optional)</label><input class="form-control" id="mass-fw-checksum" placeholder="sha256:..."></div>
+              <div class="form-group"><label>Schedule</label>
+                <select class="form-control" id="mass-fw-schedule">
+                  <option value="immediate">Immediate</option>
+                  <option value="scheduled">Scheduled</option>
+                </select>
+              </div>
+              <button class="btn btn-warning" onclick="massSubmit()"><i class="fas fa-upload"></i> Start Firmware Update</button>
+            </section>
+
+            <!-- Reboot Panel -->
+            <section id="mass-panel-reboot" class="panel mass-panel" style="display:none;">
+              <div class="panel-title"><i class="fas fa-redo"></i> Reboot</div>
+              <p style="color:var(--text-secondary);">This will reboot all selected CPEs immediately.</p>
+              <button class="btn btn-danger" onclick="massSubmit()"><i class="fas fa-redo"></i> Reboot Selected CPEs</button>
+            </section>
+
+            <!-- Factory Reset Panel -->
+            <section id="mass-panel-factory-reset" class="panel mass-panel" style="display:none;">
+              <div class="panel-title"><i class="fas fa-exclamation-triangle" style="color:var(--error)"></i> Factory Reset</div>
+              <p style="color:var(--error);">⚠️ This will factory reset all selected CPEs. This action is irreversible!</p>
+              <button class="btn btn-danger" onclick="massSubmit()"><i class="fas fa-trash-alt"></i> Factory Reset Selected CPEs</button>
+            </section>
+
+            <!-- Config Push Panel -->
+            <section id="mass-panel-config-push" class="panel mass-panel" style="display:none;">
+              <div class="panel-title"><i class="fas fa-cloud-upload-alt"></i> Configuration Push</div>
+              <div class="form-group"><label>Config URL</label><input class="form-control" placeholder="http://config.server/config.json"></div>
+              <button class="btn btn-info" onclick="massSubmit()"><i class="fas fa-cloud-upload-alt"></i> Push Config</button>
+            </section>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <section class="panel full-width mass-progress-wrap" id="mass-progress-bar-wrap" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-spinner fa-spin"></i> Job Progress</div>
+          <div class="mass-progress-bar-track"><div class="mass-progress-bar-fill" id="mass-progress-bar" style="width:0%"></div></div>
+          <div id="mass-progress-status" style="font-size:12px;color:var(--text-secondary);margin-top:6px;"></div>
+        </section>
+
+        <!-- Job History -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-history"></i> Job History</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead><tr><th>Job ID</th><th>Type</th><th>Target CPEs</th><th>Status</th><th>Started</th><th>Completed</th><th>OK / Fail</th></tr></thead>
+              <tbody id="mass-history-tbody">
+                <tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">No jobs yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary mt-2" onclick="massLoadHistory()"><i class="fas fa-sync"></i> Refresh History</button>
+        </section>
+      </div><!-- end section-mass-actions -->
+
+      <!-- ── Multi-CPE Section ─────────────────────────────────────────── -->
+      <div id="section-cpe" class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-network-wired"></i> Multi-CPE Management</h2>
+          <p>Manage multiple CPE devices and switch active connections</p>
+        </div>
+
+        <!-- Active CPE Banner -->
+        <div id="cpe-active-banner" class="cpe-active-banner"></div>
+
+        <!-- Active CPE Selector -->
+        <section class="panel full-width">
+          <div class="panel-title"><i class="fas fa-plug"></i> Active CPE</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select class="form-control" id="cpe-active-selector" style="max-width:300px;">
+              <option value="">— Select Active CPE —</option>
+            </select>
+            <button class="btn btn-primary" onclick="cpeSwitchActive()"><i class="fas fa-plug"></i> Connect</button>
+            <button class="btn btn-info" onclick="cpeLoadList()"><i class="fas fa-sync"></i> Refresh</button>
+          </div>
+        </section>
+
+        <!-- CPE Dashboard Grid -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-th-large"></i> CPE Status Dashboard</div>
+          <!-- Tag filter -->
+          <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+            <button class="cpe-tag-btn active" data-tag="all" onclick="cpeFilterByTag('all')">All</button>
+          </div>
+          <div id="cpe-dashboard-grid" class="cpe-dashboard-grid">
+            <div style="color:var(--text-secondary);text-align:center;padding:40px;grid-column:1/-1;">No CPEs registered. Add one below.</div>
+          </div>
+        </section>
+
+        <!-- CPE Registry Table -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-list"></i> CPE Registry</div>
+          <div style="overflow-x:auto;">
+            <table class="module-table">
+              <thead><tr><th>CPE ID</th><th>Serial</th><th>Model</th><th>Firmware</th><th>IP</th><th>Agent ID</th><th>Status</th><th>Last Seen</th><th>Actions</th></tr></thead>
+              <tbody id="cpe-registry-tbody">
+                <tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">No CPEs registered</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Add CPE Form -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-plus-circle"></i> Add CPE</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+            <div class="form-group"><label>Serial Number</label><input class="form-control" id="cpe-add-serial" placeholder="RDK-001234"></div>
+            <div class="form-group"><label>MQTT Broker</label><input class="form-control" id="cpe-add-broker" placeholder="192.168.1.1"></div>
+            <div class="form-group"><label>Port</label><input class="form-control" type="number" id="cpe-add-port" value="1883"></div>
+            <div class="form-group"><label>Agent ID</label><input class="form-control" id="cpe-add-agentid" placeholder="proto::rx_usp_agent_mqtt"></div>
+            <div class="form-group"><label>Friendly Name</label><input class="form-control" id="cpe-add-name" placeholder="Office Router"></div>
+            <div class="form-group"><label>Tags (comma-separated)</label><input class="form-control" id="cpe-add-tags" placeholder="office,lab"></div>
+          </div>
+          <button class="btn btn-success mt-2" onclick="cpeAdd()"><i class="fas fa-plus"></i> Add CPE</button>
+        </section>
+
+        <!-- CPE Comparison -->
+        <section class="panel full-width" style="margin-top:16px;">
+          <div class="panel-title"><i class="fas fa-balance-scale"></i> CPE Comparison</div>
+          <p style="color:var(--text-secondary);font-size:13px;">Select 2–3 CPEs to compare their key parameters side-by-side.</p>
+          <div id="cpe-compare-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <span style="color:var(--text-secondary);">No CPEs available</span>
+          </div>
+          <button class="btn btn-info" onclick="cpeCompare()"><i class="fas fa-balance-scale"></i> Compare Selected</button>
+          <div id="cpe-compare-panel" style="display:none;margin-top:14px;overflow-x:auto;">
+            <table id="cpe-compare-table" class="module-table"></table>
+          </div>
+        </section>
+      </div><!-- end section-cpe -->
 
     </main><!-- end content-area -->
   </div><!-- end app-layout -->
