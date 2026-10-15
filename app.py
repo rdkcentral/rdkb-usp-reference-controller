@@ -22,6 +22,8 @@ Flask USP Controller with Dynamic Data Model Discovery and Large Model Support
 Enhanced version with chunked discovery for large data models like DeviceInfo
 """
 from flask import Flask, request, render_template, jsonify, redirect, url_for, Response, stream_with_context
+from flasgger import Swagger
+from rest_api_v1 import rest_api_v1_bp
 import json
 import subprocess
 import re
@@ -57,7 +59,7 @@ class USPController:
     def __init__(self):
         # Default configuration - matching your existing pattern
         self.config = {
-            'broker': "10.2.175.86",
+            'broker': "10.26.69.240",
             'broker_port': "1883",
             'broker_topic': "/usp/controller",
             'broker_agent': "/usp/agent",
@@ -100,7 +102,7 @@ class USPController:
             "local": "file:///opt/resident-container-images/",
             "share": "file:///share/",
             "remote": "https://raw.githubusercontent.com/robvogelaar/robvogelaar.github.io/main/unlisted/dac-images/",
-            "server": "http://10.26.60.86/"
+            "server": "http://10.26.69.240/"
         }
         
         # Initialize on startup
@@ -1422,7 +1424,7 @@ class USPController:
                 "local": "file:///opt/resident-container-images/",
                 "share": "file:///share/",
                 "remote": "https://raw.githubusercontent.com/robvogelaar/robvogelaar.github.io/main/unlisted/dac-images/",
-                "server": "http://10.26.60.86/"
+                "server": "http://10.26.69.240/"
             }
             
             # Validate inputs - matching your validation logic
@@ -1989,6 +1991,58 @@ class USPController:
 
 # Global controller instance
 controller = USPController()
+
+# ---------------------------------------------------------------------------
+# REST API v1 — clean HTTP interface for third-party app companies
+# Swagger UI auto-generated at  /api/docs
+# ---------------------------------------------------------------------------
+rest_api_v1_bp.controller = controller
+app.register_blueprint(rest_api_v1_bp)
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec_v1",
+            "route": "/api/docs/apispec_v1.json",
+            "rule_filter": lambda rule: rule.rule.startswith("/api/v1"),
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/api/docs/static",
+    "swagger_ui": True,
+    "specs_route": "/api/docs",
+}
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "RDK-B USP Controller REST API",
+        "description": (
+            "REST interface for third-party app companies to GET and SET "
+            "TR-181 data-model parameters on RDK-B devices via USP/TR-369. "
+            "No USP or MQTT knowledge required — use standard HTTP calls."
+        ),
+        "version": "1.0.0",
+        "contact": {
+            "name": "RDK Management",
+            "url": "https://rdkcentral.com",
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0",
+        },
+    },
+    "basePath": "/",
+    "schemes": ["http", "https"],
+    "consumes": ["application/json"],
+    "produces": ["application/json"],
+    "tags": [
+        {"name": "Parameters", "description": "Read and write TR-181 data-model parameters"},
+        {"name": "Commands",   "description": "Execute USP Operate commands on the device"},
+        {"name": "Status",     "description": "Controller and agent health"},
+    ],
+}
+Swagger(app, config=swagger_config, template=swagger_template)
 
 # ---------------------------------------------------------------------------
 # USP Event Listener — started as a daemon thread
@@ -3248,7 +3302,7 @@ def _load_cpe_registry() -> list:
             pass
     return [
         {'id': 'cpe-001', 'serial': 'RDK-001234', 'model': 'RDK-B Gateway', 'firmware': '5.4.0.0',
-         'ip': '10.2.175.86', 'agent_id': 'proto::rx_usp_agent_mqtt', 'status': 'Online',
+         'ip': '10.26.69.240', 'agent_id': 'proto::rx_usp_agent_mqtt', 'status': 'Online',
          'last_seen': 'Just now', 'friendly_name': 'Lab Gateway', 'tags': ['lab']},
         {'id': 'cpe-002', 'serial': 'RDK-005678', 'model': 'RDK-B Access Point', 'firmware': '5.3.1.0',
          'ip': '10.2.175.87', 'agent_id': 'proto::rx_usp_agent_mqtt_2', 'status': 'Offline',
