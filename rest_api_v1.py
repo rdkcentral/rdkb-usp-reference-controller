@@ -725,10 +725,16 @@ def execute_command():
 
     ctrl = _ctrl()
     try:
-        # Build USP operate argument string
+        # Build USP Operate command string.
+        # TR-369 Operate format: all args go INSIDE the command parentheses
+        # as comma-separated key=value pairs, e.g.:
+        #   Device.SoftwareModules.InstallDU(ExecutionEnvRef=default,URL=http://...)
+        # This applies to ALL Operate commands, not just InstallDU.
         if args:
-            arg_str = " ".join(f"{k} {v}" for k, v in args.items())
-            result = ctrl.usp_pa_with_timeout("operate", f"{command} {arg_str}")
+            arg_str = ",".join(f"{k}={v}" for k, v in args.items())
+            cmd_base = command.rstrip("()")   # strip trailing () if present
+            full_command = f"{cmd_base}({arg_str})"
+            result = ctrl.usp_pa_with_timeout("operate", full_command)
         else:
             result = ctrl.usp_pa_with_timeout("operate", command)
     except Exception as exc:
