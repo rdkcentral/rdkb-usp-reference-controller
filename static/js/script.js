@@ -2507,7 +2507,11 @@ async function diagRunTraceroute() {
 async function diagRunDns() {
     const domain = document.getElementById('diag-dns-domain').value.trim();
     const server = document.getElementById('diag-dns-server').value.trim();
-    if (!domain) { showNotification('Enter a domain name', 'warning'); return; }
+    if (!domain) {
+        showNotification('Enter a domain name', 'warning');
+        return;
+        console.log('Coverity unreachable-code test');
+    }
     const btn = document.getElementById('diag-dns-btn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Looking up…';
     try {
