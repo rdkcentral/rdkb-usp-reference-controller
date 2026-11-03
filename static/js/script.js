@@ -19,53 +19,53 @@
 
 // ── Sidebar Navigation ──────────────────────────────────────────────────────
 const VALID_SECTIONS = [
-  'section-dashboard', 'section-metrics', 'section-alerts', 'section-fleet',
-  'section-parameters', 'section-dac', 'section-modules', 'section-iot', 'section-events',
-  'section-easymesh', 'section-wifi', 'section-devices', 'section-topology', 'section-diagnostics',
-  'section-location', 'section-ai', 'section-rbac',
-  'section-mass-actions', 'section-cpe'
+    'section-dashboard', 'section-metrics', 'section-alerts', 'section-fleet',
+    'section-parameters', 'section-dac', 'section-modules', 'section-iot', 'section-events',
+    'section-easymesh', 'section-wifi', 'section-devices', 'section-topology', 'section-diagnostics',
+    'section-location', 'section-ai', 'section-rbac',
+    'section-mass-actions', 'section-cpe'
 ];
 
 function showSection(id) {
-  if (!VALID_SECTIONS.includes(id)) return;
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('section-active'));
-  const target = document.getElementById(id);
-  if (target) target.classList.add('section-active');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const escapedId = id; // id is already validated against VALID_SECTIONS allowlist
-  const link = document.querySelector('.nav-item[data-section="' + escapedId + '"]');
-  if (link) link.classList.add('active');
-  localStorage.setItem('activeSection', id);
+    if (!VALID_SECTIONS.includes(id)) return;
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('section-active'));
+    const target = document.getElementById(id);
+    if (target) target.classList.add('section-active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const escapedId = id; // id is already validated against VALID_SECTIONS allowlist
+    const link = document.querySelector('.nav-item[data-section="' + escapedId + '"]');
+    if (link) link.classList.add('active');
+    localStorage.setItem('activeSection', id);
 }
 
 function toggleSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  const contentArea = document.querySelector('.content-area');
-  if (!sidebar || !contentArea) return;
-  const isMobile = window.innerWidth <= 768;
-  if (isMobile) {
-    sidebar.classList.toggle('mobile-open');
-  } else {
-    sidebar.classList.toggle('collapsed');
-    contentArea.classList.toggle('sidebar-collapsed');
-  }
+    const sidebar = document.querySelector('.sidebar');
+    const contentArea = document.querySelector('.content-area');
+    if (!sidebar || !contentArea) return;
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        sidebar.classList.toggle('mobile-open');
+    } else {
+        sidebar.classList.toggle('collapsed');
+        contentArea.classList.toggle('sidebar-collapsed');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  const saved = localStorage.getItem('activeSection');
-  const initial = (saved && VALID_SECTIONS.includes(saved)) ? saved : 'section-dashboard';
-  showSection(initial);
+    const saved = localStorage.getItem('activeSection');
+    const initial = (saved && VALID_SECTIONS.includes(saved)) ? saved : 'section-dashboard';
+    showSection(initial);
 
-  // Keyboard support for nav items
-  document.querySelectorAll('.nav-item').forEach(function(item) {
-    item.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        const sectionId = item.getAttribute('data-section');
-        if (sectionId) showSection(sectionId);
-      }
+    // Keyboard support for nav items
+    document.querySelectorAll('.nav-item').forEach(function (item) {
+        item.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const sectionId = item.getAttribute('data-section');
+                if (sectionId) showSection(sectionId);
+            }
+        });
     });
-  });
 });
 
 // ── End Sidebar Navigation ───────────────────────────────────────────────────
@@ -82,7 +82,7 @@ const USPController = {
         expandedNodes: new Set(),
         currentView: 'table'
     },
-    
+
     config: {
         refreshInterval: 30000, // 30 seconds
         maxHistoryItems: 50,
@@ -92,7 +92,7 @@ const USPController = {
 };
 
 // Initialize application when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     initializeApplication();
     setupEventListeners();
     startPeriodicUpdates();
@@ -103,28 +103,28 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function initializeApplication() {
     console.log('🚀 Initializing USP Controller...');
-    
+
     // Update last update time
     updateLastUpdateTime();
-    
+
     // Initialize tooltips
     initializeTooltips();
-    
+
     // Setup keyboard shortcuts
     setupKeyboardShortcuts();
-    
+
     // Restore user preferences
     restoreUserPreferences();
-    
+
     // Restore expanded tree nodes from localStorage
     restoreExpandedNodes();
-    
+
     // Build category filter chips from the rendered tree
     buildCategoryChips();
-    
+
     // Initialize search functionality
     initializeSearch();
-    
+
     console.log('✅ USP Controller initialized');
 }
 
@@ -135,32 +135,32 @@ function setupEventListeners() {
     // Form submissions with loading states
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             showLoading();
             // Allow form to submit naturally
         });
     });
-    
+
     // Parameter path selection enhancements
     const paramSelects = document.querySelectorAll('select[name="param_path"]');
     paramSelects.forEach(select => {
-        select.addEventListener('change', function() {
+        select.addEventListener('change', function () {
             updateParameterSuggestions(this.value);
         });
     });
-    
+
     // Real-time search for data model
     const searchInput = document.getElementById('model-search');
     if (searchInput) {
         let searchTimeout;
-        searchInput.addEventListener('input', function() {
+        searchInput.addEventListener('input', function () {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 filterDataModel(this.value);
             }, USPController.config.searchDebounceDelay);
         });
     }
-    
+
     // Auto-dismiss messages
     const messages = document.querySelectorAll('.message');
     messages.forEach(message => {
@@ -177,17 +177,17 @@ function setupEventListeners() {
  */
 function selectParameter(path) {
     console.log(`📋 Selected parameter: ${path}`);
-    
+
     // Update both get and set parameter dropdowns
     updateParameterDropdown('get-param-path', path);
     updateParameterDropdown('set-param-path', path);
-    
+
     // Add to history
     addToParameterHistory(path);
-    
+
     // Show parameter suggestions
     showParameterSuggestions(path);
-    
+
     // Highlight in tree
     highlightTreeNode(path);
 }
@@ -198,7 +198,7 @@ function selectParameter(path) {
 function updateParameterDropdown(selectId, path) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    
+
     // Check if option already exists
     let optionExists = false;
     for (let option of select.options) {
@@ -208,14 +208,14 @@ function updateParameterDropdown(selectId, path) {
             break;
         }
     }
-    
+
     // Create new option if it doesn't exist
     if (!optionExists) {
         const option = document.createElement('option');
         option.value = path;
         option.text = path;
         option.selected = true;
-        
+
         // Add to appropriate optgroup or create "Custom" group
         let customGroup = select.querySelector('optgroup[label="Custom Parameters"]');
         if (!customGroup) {
@@ -225,7 +225,7 @@ function updateParameterDropdown(selectId, path) {
         }
         customGroup.appendChild(option);
     }
-    
+
     // Trigger change event
     select.dispatchEvent(new Event('change'));
 }
@@ -235,21 +235,21 @@ function updateParameterDropdown(selectId, path) {
  */
 function addToParameterHistory(path) {
     const history = USPController.state.parameterHistory;
-    
+
     // Remove if already exists
     const existingIndex = history.indexOf(path);
     if (existingIndex > -1) {
         history.splice(existingIndex, 1);
     }
-    
+
     // Add to beginning
     history.unshift(path);
-    
+
     // Limit history size
     if (history.length > USPController.config.maxHistoryItems) {
         history.splice(USPController.config.maxHistoryItems);
     }
-    
+
     // Save to localStorage
     localStorage.setItem('usp_parameter_history', JSON.stringify(history));
 }
@@ -260,7 +260,7 @@ function addToParameterHistory(path) {
 function getDeviceInfo() {
     console.log('📱 Getting device information...');
     showLoading('Getting device information...');
-    
+
     const deviceParams = [
         'Device.DeviceInfo.SerialNumber',
         'Device.DeviceInfo.Manufacturer',
@@ -268,7 +268,7 @@ function getDeviceInfo() {
         'Device.DeviceInfo.SoftwareVersion',
         'Device.DeviceInfo.HardwareVersion'
     ];
-    
+
     // Simulate getting multiple parameters
     fetchMultipleParameters(deviceParams, 'Device Information');
 }
@@ -276,28 +276,28 @@ function getDeviceInfo() {
 function getWiFiStatus() {
     console.log('📶 Getting WiFi status...');
     showLoading('Getting WiFi status...');
-    
+
     const wifiParams = [
         'Device.WiFi.Radio.1.Enable',
         'Device.WiFi.SSID.1.SSID',
         'Device.WiFi.SSID.1.Enable',
         'Device.WiFi.Radio.1.Channel'
     ];
-    
+
     fetchMultipleParameters(wifiParams, 'WiFi Status');
 }
 
 function getSystemStats() {
     console.log('📊 Getting system statistics...');
     showLoading('Getting system statistics...');
-    
+
     const statsParams = [
         'Device.DeviceInfo.UpTime',
         'Device.DeviceInfo.MemoryStatus.Total',
         'Device.DeviceInfo.MemoryStatus.Free',
         'Device.DeviceInfo.ProcessorUsage'
     ];
-    
+
     fetchMultipleParameters(statsParams, 'System Statistics');
 }
 
@@ -318,7 +318,7 @@ function fetchMultipleParameters(params, title) {
 function toggleAdvancedMode() {
     USPController.state.advancedMode = !USPController.state.advancedMode;
     const button = event.target.closest('button');
-    
+
     if (USPController.state.advancedMode) {
         button.innerHTML = '<i class="fas fa-tools"></i> Basic';
         showAdvancedConfig();
@@ -326,7 +326,7 @@ function toggleAdvancedMode() {
         button.innerHTML = '<i class="fas fa-tools"></i> Advanced';
         hideAdvancedConfig();
     }
-    
+
     console.log(`🔧 Advanced mode: ${USPController.state.advancedMode ? 'ON' : 'OFF'}`);
 }
 
@@ -370,7 +370,7 @@ function updateAppDescription() {
     const appSelect = document.getElementById('app-name');
     const descDiv = document.getElementById('app-description');
     const selectedOption = appSelect.options[appSelect.selectedIndex];
-    
+
     if (selectedOption && selectedOption.dataset.desc) {
         descDiv.innerHTML = `
             <i class="fas fa-info-circle"></i>
@@ -386,7 +386,7 @@ function updateAppDescription() {
 function updateLocationInfo() {
     const locationSelect = document.getElementById('app-location');
     const selectedOption = locationSelect.options[locationSelect.selectedIndex];
-    
+
     if (selectedOption && selectedOption.dataset.desc) {
         console.log(`📍 Location: ${selectedOption.text} - ${selectedOption.dataset.desc}`);
     }
@@ -396,12 +396,12 @@ function validateInstallation() {
     const name = document.getElementById('app-name').value;
     const location = document.getElementById('app-location').value;
     const version = document.getElementById('app-version').value;
-    
+
     if (!name || !location || !version) {
         showNotification('Please select application, location, and version', 'warning');
         return false;
     }
-    
+
     showNotification('Installation parameters validated successfully', 'success');
     return true;
 }
@@ -409,7 +409,7 @@ function validateInstallation() {
 function refreshApplicationList() {
     console.log('🔄 Refreshing application list...');
     showLoading('Refreshing application list...');
-    
+
     // Simulate refresh
     setTimeout(() => {
         hideLoading();
@@ -442,11 +442,11 @@ function confirmUninstall(name) {
 function exportModuleData() {
     console.log('📊 Exporting module data...');
     showLoading('Preparing export...');
-    
+
     // Simulate data preparation
     setTimeout(() => {
         hideLoading();
-        
+
         // Create mock data
         const data = {
             timestamp: new Date().toISOString(),
@@ -456,7 +456,7 @@ function exportModuleData() {
                 executionUnits: []
             }
         };
-        
+
         downloadJSON(data, 'usp-modules-export.json');
         showNotification('Module data exported successfully', 'success');
     }, 2000);
@@ -465,11 +465,11 @@ function exportModuleData() {
 function toggleModuleView() {
     USPController.state.currentView = USPController.state.currentView === 'table' ? 'grid' : 'table';
     console.log(`🔄 Switched to ${USPController.state.currentView} view`);
-    
+
     // Update button text
     const button = event.target.closest('button');
-    button.innerHTML = USPController.state.currentView === 'table' ? 
-        '<i class="fas fa-th"></i> Grid View' : 
+    button.innerHTML = USPController.state.currentView === 'table' ?
+        '<i class="fas fa-th"></i> Grid View' :
         '<i class="fas fa-th-list"></i> Table View';
 }
 
@@ -717,7 +717,7 @@ function editParam(path) {
     input.value = currentValue;
     input.focus();
     input.select();
-    input.addEventListener('keydown', function(e) {
+    input.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') saveParam(path, this.value);
         if (e.key === 'Escape') cancelEdit(path);
     });
@@ -732,8 +732,8 @@ async function saveParam(path, newValue) {
     try {
         const resp = await fetch('/api/set_parameter_ajax', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({path: path, value: newValue})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: path, value: newValue })
         });
         const data = await resp.json();
 
@@ -879,7 +879,7 @@ function highlightTreeNode(path) {
     document.querySelectorAll('.tree-node.highlighted').forEach(node => {
         node.classList.remove('highlighted');
     });
-    
+
     // Find node by dataset to avoid CSS selector injection
     const node = Array.from(document.querySelectorAll('.tree-node[data-path]')).find(
         n => n.dataset.path === path
@@ -896,7 +896,7 @@ function highlightTreeNode(path) {
 function refreshLogs() {
     console.log('📄 Refreshing logs...');
     showLoading('Refreshing logs...');
-    
+
     // In a real implementation, this would fetch new logs
     setTimeout(() => {
         hideLoading();
@@ -919,7 +919,7 @@ function downloadLogs() {
     console.log('💾 Downloading logs...');
     const logs = document.querySelectorAll('.log-entry');
     const logText = Array.from(logs).map(log => log.textContent).join('\n');
-    
+
     downloadText(logText, 'usp-controller-logs.txt');
     showNotification('Logs downloaded', 'success');
 }
@@ -927,7 +927,7 @@ function downloadLogs() {
 function toggleAutoScroll() {
     USPController.state.autoScroll = !USPController.state.autoScroll;
     const button = event.target.closest('button');
-    
+
     if (USPController.state.autoScroll) {
         button.innerHTML = '<i class="fas fa-pause"></i> Pause Scroll';
         button.classList.remove('btn-primary');
@@ -937,7 +937,7 @@ function toggleAutoScroll() {
         button.classList.remove('btn-warning');
         button.classList.add('btn-primary');
     }
-    
+
     console.log(`📜 Auto scroll: ${USPController.state.autoScroll ? 'ON' : 'OFF'}`);
 }
 
@@ -947,10 +947,10 @@ function toggleAutoScroll() {
 function showLoading(message = 'Loading...') {
     const overlay = document.getElementById('loading-overlay');
     const text = overlay.querySelector('.loading-text');
-    
+
     if (text) text.textContent = message;
     overlay.style.display = 'flex';
-    
+
     // Prevent body scroll
     document.body.style.overflow = 'hidden';
 }
@@ -958,7 +958,7 @@ function showLoading(message = 'Loading...') {
 function hideLoading() {
     const overlay = document.getElementById('loading-overlay');
     overlay.style.display = 'none';
-    
+
     // Restore body scroll
     document.body.style.overflow = '';
 }
@@ -974,21 +974,21 @@ function showNotification(message, type = 'info') {
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-    closeBtn.onclick = function() { this.parentElement.remove(); };
+    closeBtn.onclick = function () { this.parentElement.remove(); };
     notification.appendChild(icon);
     notification.appendChild(span);
     notification.appendChild(closeBtn);
-    
+
     // Add to page
     document.body.appendChild(notification);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         if (notification.parentElement) {
             fadeOut(notification, () => notification.remove());
         }
     }, 5000);
-    
+
     console.log(`🔔 Notification (${type}): ${message}`);
 }
 
@@ -1019,7 +1019,7 @@ function showModal(title, content) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.remove();
@@ -1062,7 +1062,7 @@ function fadeOut(element, callback) {
     element.style.opacity = '1';
     element.style.transition = `opacity ${USPController.config.animationDuration}ms ease-out`;
     element.style.opacity = '0';
-    
+
     setTimeout(() => {
         if (callback) callback();
     }, USPController.config.animationDuration);
@@ -1072,7 +1072,7 @@ function slideDown(element) {
     element.style.height = '0';
     element.style.overflow = 'hidden';
     element.style.transition = `height ${USPController.config.animationDuration}ms ease-out`;
-    
+
     setTimeout(() => {
         element.style.height = element.scrollHeight + 'px';
         setTimeout(() => {
@@ -1086,7 +1086,7 @@ function slideUp(element, callback) {
     element.style.height = element.scrollHeight + 'px';
     element.style.overflow = 'hidden';
     element.style.transition = `height ${USPController.config.animationDuration}ms ease-out`;
-    
+
     setTimeout(() => {
         element.style.height = '0';
         setTimeout(() => {
@@ -1118,7 +1118,7 @@ function saveUserPreferences() {
         currentView: USPController.state.currentView,
         expandedNodes: Array.from(USPController.state.expandedNodes)
     };
-    
+
     localStorage.setItem('usp_controller_preferences', JSON.stringify(preferences));
 }
 
@@ -1139,13 +1139,13 @@ function restoreUserPreferences() {
  * Keyboard shortcuts
  */
 function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         // Ctrl/Cmd + R: Refresh
         if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
             e.preventDefault();
             window.location.reload();
         }
-        
+
         // Ctrl/Cmd + F: Search data model
         if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
             e.preventDefault();
@@ -1154,7 +1154,7 @@ function setupKeyboardShortcuts() {
                 searchInput.focus();
             }
         }
-        
+
         // Escape: Close modals
         if (e.key === 'Escape') {
             const modals = document.querySelectorAll('.modal-overlay');
@@ -1421,7 +1421,7 @@ async function metricsFetchSample() {
                 sample.rx = toNum(wifi.stats[0].rx_bytes, sample.rx);
                 sample.tx = toNum(wifi.stats[0].tx_bytes, sample.tx);
             }
-        } catch (_) {}
+        } catch (_) { }
     }
     showFeatureNotice('metrics-backend-notice', FEATURE_STATE.metrics.backendUnavailable);
     return sample;
@@ -1494,7 +1494,7 @@ function metricsInit() {
     const range = document.getElementById('metrics-time-range');
     if (range && !range.dataset.bound) {
         range.dataset.bound = '1';
-        range.addEventListener('change', function() {
+        range.addEventListener('change', function () {
             FEATURE_STATE.metrics.points = metricsPointsFromRange(this.value);
             metricsTrim();
         });
@@ -1550,7 +1550,7 @@ async function alertsGetParameterValue(path) {
             'Device.Ethernet.Interface.1.Stats.BytesSent': m.bytes_sent
         };
         if (mapping[path] !== undefined) return mapping[path];
-    } catch (_) {}
+    } catch (_) { }
     if (path === 'Device.WiFi.Radio.1.Enable') {
         try {
             const wifi = await fetchApiJson('/api/wifi/status');
@@ -1885,7 +1885,7 @@ function wifiLoadQosSettings() {
             const el = document.getElementById(`wifi-qos-${k}`);
             if (el) el.checked = !!s[k];
         });
-    } catch (_) {}
+    } catch (_) { }
 }
 
 function wifiSaveQosSettings() {
@@ -2094,7 +2094,7 @@ async function wifiLoadClients() {
           <td>${escHtml(c.capabilities || '802.11ax')}</td>
           <td><button class="btn btn-sm btn-danger" onclick="wifiKickClient('${escHtml(c.mac || '')}')">Kick Client</button></td>
         </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);">No WiFi clients</td></tr>';
-    } catch (_) {}
+    } catch (_) { }
 }
 
 async function wifiKickClient(mac) {
@@ -2149,14 +2149,14 @@ async function devicesLoad() {
         if (el('dev-wifi')) el('dev-wifi').textContent = wifi;
         if (el('dev-wired')) el('dev-wired').textContent = wired;
         if (el('dev-active')) el('dev-active').textContent = active;
-    } catch(e) { console.error('Devices load error', e); }
+    } catch (e) { console.error('Devices load error', e); }
 }
 
 function devicesRender(list) {
     const tbody = document.getElementById('devices-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    list.forEach((d,i) => {
+    list.forEach((d, i) => {
         const sigHtml = d.connection_type === 'WiFi' ? signalBars(d.signal) : '<span class="text-muted">—</span>';
         const connType = d.connection_type === 'WiFi' ? 'wifi' : 'ethernet';
         tbody.innerHTML += `<tr class="dev-row" onclick="devicesToggleDetail(${i})">
@@ -2169,7 +2169,7 @@ function devicesRender(list) {
           <td><span class="status-badge status-${escHtml(d.status.toLowerCase())}">${escHtml(d.status)}</span></td>
           <td>${escHtml(d.last_seen)}</td>
           <td>
-            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();devicesBlockByIdx(${i})">${d.blocked?'Unblock':'Block'}</button>
+            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();devicesBlockByIdx(${i})">${d.blocked ? 'Unblock' : 'Block'}</button>
           </td>
         </tr>
         <tr id="dev-detail-${i}" class="dev-detail-row" style="display:none">
@@ -2180,7 +2180,7 @@ function devicesRender(list) {
               <div><strong>TX Rate:</strong> ${parseInt(d.tx_rate) || '—'} Mbps</div>
               <div><strong>RX Rate:</strong> ${parseInt(d.rx_rate) || '—'} Mbps</div>
               <div><strong>RSSI:</strong> ${d.rssi !== null && d.rssi !== undefined ? parseInt(d.rssi) + ' dBm' : '—'}</div>
-              <div><strong>Internet:</strong> <button class="btn btn-warning btn-sm" onclick="devicesBlockByIdx(${i})">${d.blocked?'Unblocked':'Block Internet'}</button></div>
+              <div><strong>Internet:</strong> <button class="btn btn-warning btn-sm" onclick="devicesBlockByIdx(${i})">${d.blocked ? 'Unblocked' : 'Block Internet'}</button></div>
             </div>
           </td>
         </tr>`;
@@ -2197,10 +2197,10 @@ function signalBars(sig) {
     const pct = Math.min(100, Math.max(0, (val + 100) * 2));
     const color = pct > 60 ? 'var(--success)' : pct > 30 ? 'var(--warning)' : 'var(--error)';
     return `<span class="signal-bars" title="${val} dBm">
-      <span class="signal-bar ${pct>20?'active':''}" style="background:${color}"></span>
-      <span class="signal-bar ${pct>40?'active':''}" style="background:${color}"></span>
-      <span class="signal-bar ${pct>60?'active':''}" style="background:${color}"></span>
-      <span class="signal-bar ${pct>80?'active':''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct > 20 ? 'active' : ''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct > 40 ? 'active' : ''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct > 60 ? 'active' : ''}" style="background:${color}"></span>
+      <span class="signal-bar ${pct > 80 ? 'active' : ''}" style="background:${color}"></span>
     </span>`;
 }
 
@@ -2211,11 +2211,11 @@ function devicesToggleDetail(i) {
 
 async function devicesBlock(mac, block) {
     try {
-        const r = await fetch('/api/devices/block', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({mac, block}) });
+        const r = await fetch('/api/devices/block', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mac, block }) });
         const d = await r.json();
-        showNotification(d.success ? (block?'Device blocked':'Device unblocked') : 'Action failed', d.success?'success':'error');
+        showNotification(d.success ? (block ? 'Device blocked' : 'Device unblocked') : 'Action failed', d.success ? 'success' : 'error');
         devicesLoad();
-    } catch(e) { showNotification('Device block error', 'error'); }
+    } catch (e) { showNotification('Device block error', 'error'); }
 }
 
 function devicesFilter(type) {
@@ -2324,7 +2324,7 @@ async function easymeshLoad() {
         const meshEvents = (events.events || []).filter(e => JSON.stringify(e).toLowerCase().includes('mesh'));
         const log = document.getElementById('easymesh-events-log');
         if (log) log.innerHTML = meshEvents.length ? meshEvents.slice(-20).map(e => `<div>${escHtml(e.timestamp || '')} • ${escHtml(e.event_name || e.type || 'event')}</div>`).join('') : 'No mesh-related events yet.';
-    } catch (_) {}
+    } catch (_) { }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2425,7 +2425,7 @@ async function topologyRefresh() {
         const [devRes, wifiRes] = await Promise.all([fetchApiJson('/api/devices'), fetchApiJson('/api/wifi/status')]);
         devices = devRes.devices || [];
         wifiStatus = wifiRes || {};
-    } catch (_) {}
+    } catch (_) { }
     const built = topologyBuildFromData(devices, wifiStatus);
     let nodes = built.nodes.slice();
     let edges = built.edges.slice();
@@ -2463,7 +2463,7 @@ async function diagRunPing() {
     const btn = document.getElementById('diag-ping-btn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running…';
     try {
-        const r = await fetch('/api/diagnostics/ping', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({host, count: parseInt(count), size: parseInt(size)}) });
+        const r = await fetch('/api/diagnostics/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host, count: parseInt(count), size: parseInt(size) }) });
         const d = await r.json();
         const res = document.getElementById('diag-ping-results');
         if (res) {
@@ -2478,7 +2478,7 @@ async function diagRunPing() {
                    </div>`
                 : `<div class="diag-result-err"><i class="fas fa-times-circle"></i> ${d.error || 'Ping failed'}</div>`;
         }
-    } catch(e) { showNotification('Ping error', 'error'); }
+    } catch (e) { showNotification('Ping error', 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Run Ping'; }
 }
 
@@ -2489,7 +2489,7 @@ async function diagRunTraceroute() {
     const btn = document.getElementById('diag-trace-btn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running…';
     try {
-        const r = await fetch('/api/diagnostics/traceroute', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({host, max_hops: parseInt(maxhops)}) });
+        const r = await fetch('/api/diagnostics/traceroute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host, max_hops: parseInt(maxhops) }) });
         const d = await r.json();
         const tbody = document.getElementById('diag-trace-tbody');
         if (tbody) {
@@ -2500,7 +2500,7 @@ async function diagRunTraceroute() {
         }
         const res = document.getElementById('diag-trace-results');
         if (res) res.style.display = 'block';
-    } catch(e) { showNotification('Traceroute error', 'error'); }
+    } catch (e) { showNotification('Traceroute error', 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-route"></i> Run Traceroute'; }
 }
 
@@ -2511,22 +2511,23 @@ async function diagRunDns() {
         showNotification('Enter a domain name', 'warning');
         return;
         console.log('Coverity unreachable-code test');
+        console.log('Coverity unreachable-code test 2');
     }
     const btn = document.getElementById('diag-dns-btn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Looking up…';
     try {
-        const r = await fetch('/api/diagnostics/dns', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({domain, server}) });
+        const r = await fetch('/api/diagnostics/dns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain, server }) });
         const d = await r.json();
         const res = document.getElementById('diag-dns-results');
         if (res) {
             res.style.display = 'block';
             res.innerHTML = d.success
-                ? `<div><strong>A:</strong> ${(d.a||[]).join(', ') || 'none'}</div>
-                   <div><strong>AAAA:</strong> ${(d.aaaa||[]).join(', ') || 'none'}</div>
-                   <div><strong>MX:</strong> ${(d.mx||[]).join(', ') || 'none'}</div>`
+                ? `<div><strong>A:</strong> ${(d.a || []).join(', ') || 'none'}</div>
+                   <div><strong>AAAA:</strong> ${(d.aaaa || []).join(', ') || 'none'}</div>
+                   <div><strong>MX:</strong> ${(d.mx || []).join(', ') || 'none'}</div>`
                 : `<div class="diag-result-err">${d.error}</div>`;
         }
-    } catch(e) { showNotification('DNS lookup error', 'error'); }
+    } catch (e) { showNotification('DNS lookup error', 'error'); }
     finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Lookup'; }
 }
 
@@ -2543,7 +2544,7 @@ async function diagRunSpeedTest(type) {
         if (bar) bar.querySelector('.diag-progress-fill').style.width = prog + '%';
     }, 300);
     try {
-        const r = await fetch('/api/diagnostics/speedtest', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({type}) });
+        const r = await fetch('/api/diagnostics/speedtest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type }) });
         const d = await r.json();
         clearInterval(interval);
         if (bar) bar.querySelector('.diag-progress-fill').style.width = '100%';
@@ -2553,8 +2554,8 @@ async function diagRunSpeedTest(type) {
                 ? `<strong>${d.speed} Mbps</strong> (latency: ${d.latency}ms)`
                 : `<span class="diag-result-err">${d.error}</span>`;
         }
-    } catch(e) { clearInterval(interval); showNotification('Speed test error', 'error'); }
-    finally { if (btn) { btn.disabled = false; btn.innerHTML = type==='download' ? '<i class="fas fa-arrow-down"></i> Test Download' : '<i class="fas fa-arrow-up"></i> Test Upload'; } }
+    } catch (e) { clearInterval(interval); showNotification('Speed test error', 'error'); }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = type === 'download' ? '<i class="fas fa-arrow-down"></i> Test Download' : '<i class="fas fa-arrow-up"></i> Test Upload'; } }
 }
 
 async function diagLoadHealth() {
@@ -2562,13 +2563,13 @@ async function diagLoadHealth() {
         const r = await fetch('/api/diagnostics/health');
         const d = await r.json();
         (d.checks || []).forEach(c => {
-            const el = document.getElementById('diag-health-' + c.name.toLowerCase().replace(/\s+/g,'-'));
+            const el = document.getElementById('diag-health-' + c.name.toLowerCase().replace(/\s+/g, '-'));
             if (el) {
                 el.className = 'diag-health-tile diag-health-' + (c.status === 'ok' ? 'ok' : c.status === 'warn' ? 'warn' : 'fail');
                 el.querySelector('.diag-health-status').textContent = c.status.toUpperCase();
             }
         });
-    } catch(e) { console.error('Health check error', e); }
+    } catch (e) { console.error('Health check error', e); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2579,7 +2580,7 @@ async function locationLoad() {
         const r = await fetch('/api/location/get');
         const d = await r.json();
         const f = d.location || {};
-        ['street','city','country','latitude','longitude','postal_code'].forEach(k => {
+        ['street', 'city', 'country', 'latitude', 'longitude', 'postal_code'].forEach(k => {
             const el = document.getElementById('loc-' + k.replace(/_/g, '-'));
             if (el) el.value = f[k] || '';
         });
@@ -2597,11 +2598,11 @@ async function locationLoad() {
         if (mapCoords) mapCoords.textContent = lat && lng ? `${lat}, ${lng}` : 'No coordinates set';
         // ISP
         const isp = d.isp || {};
-        ['name','asn','region'].forEach(k => {
+        ['name', 'asn', 'region'].forEach(k => {
             const el = document.getElementById('loc-isp-' + k);
             if (el) el.textContent = isp[k] || '—';
         });
-    } catch(e) { console.error('Location load error', e); }
+    } catch (e) { console.error('Location load error', e); }
 }
 
 async function locationSave() {
@@ -2614,11 +2615,11 @@ async function locationSave() {
         postal_code: document.getElementById('loc-postal-code').value
     };
     try {
-        const r = await fetch('/api/location/set', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const r = await fetch('/api/location/set', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const d = await r.json();
         showNotification(d.success ? 'Location saved' : 'Save failed: ' + d.error, d.success ? 'success' : 'error');
         if (d.success) locationLoad();
-    } catch(e) { showNotification('Location save error', 'error'); }
+    } catch (e) { showNotification('Location save error', 'error'); }
 }
 
 async function locationSaveTimezone() {
@@ -2628,10 +2629,10 @@ async function locationSaveTimezone() {
         locale: document.getElementById('loc-locale').value
     };
     try {
-        const r = await fetch('/api/location/timezone', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const r = await fetch('/api/location/timezone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const d = await r.json();
         showNotification(d.success ? 'Timezone saved' : 'Save failed: ' + d.error, d.success ? 'success' : 'error');
-    } catch(e) { showNotification('Timezone save error', 'error'); }
+    } catch (e) { showNotification('Timezone save error', 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2669,7 +2670,7 @@ function aiAppendMessage(text, role, ts) {
     div.appendChild(tsDiv);
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
-    _aiMessages.push({role, text, time});
+    _aiMessages.push({ role, text, time });
 }
 
 function aiShowTyping() {
@@ -2695,11 +2696,11 @@ async function aiCallBackend(message) {
             connected: document.querySelector('.pill-connected') !== null,
             data_model_count: parseInt(document.querySelector('.hero-stat-value') ? document.querySelectorAll('.hero-stat-value')[1]?.textContent || '0' : '0'),
         };
-        const r = await fetch('/api/ai/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message, context}) });
+        const r = await fetch('/api/ai/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, context }) });
         const d = await r.json();
         aiHideTyping();
         aiAppendMessage(d.response || 'No response', 'assistant');
-    } catch(e) {
+    } catch (e) {
         aiHideTyping();
         aiAppendMessage('Error contacting AI backend.', 'assistant');
     }
@@ -2730,7 +2731,7 @@ async function rbacLoadUsers() {
             window._rbacUsers = d.users || [];
             (d.users || []).forEach((u, i) => {
                 const roleLower = u.role.toLowerCase();
-                const validRole = ['admin','operator','viewer'].includes(roleLower) ? roleLower : 'viewer';
+                const validRole = ['admin', 'operator', 'viewer'].includes(roleLower) ? roleLower : 'viewer';
                 tbody.innerHTML += `<tr>
                   <td>${escHtml(u.username)}</td>
                   <td><span class="role-badge role-${validRole}">${escHtml(u.role)}</span></td>
@@ -2738,21 +2739,21 @@ async function rbacLoadUsers() {
                   <td>${escHtml(u.last_login || 'Never')}</td>
                   <td>
                     <select class="form-control form-control-sm" onchange="rbacSetRoleByIdx(${i},this.value)">
-                      ${['Admin','Operator','Viewer'].map(r => `<option${r===u.role?' selected':''}>${r}</option>`).join('')}
+                      ${['Admin', 'Operator', 'Viewer'].map(r => `<option${r === u.role ? ' selected' : ''}>${r}</option>`).join('')}
                     </select>
-                    <button class="btn btn-${u.active?'warning':'success'} btn-sm" onclick="rbacToggleByIdx(${i},${!u.active})">${u.active?'Deactivate':'Activate'}</button>
+                    <button class="btn btn-${u.active ? 'warning' : 'success'} btn-sm" onclick="rbacToggleByIdx(${i},${!u.active})">${u.active ? 'Deactivate' : 'Activate'}</button>
                   </td>
                 </tr>`;
             });
         }
-    } catch(e) { console.error('RBAC users error', e); }
+    } catch (e) { console.error('RBAC users error', e); }
 }
 
 async function rbacSetRole(username, role) {
     try {
-        await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'set_role', username, role}) });
+        await fetch('/api/rbac/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set_role', username, role }) });
         showNotification(`Role updated for ${escHtml(username)}`, 'success');
-    } catch(e) { showNotification('Role update failed', 'error'); }
+    } catch (e) { showNotification('Role update failed', 'error'); }
 }
 
 function rbacSetRoleByIdx(i, role) {
@@ -2762,10 +2763,10 @@ function rbacSetRoleByIdx(i, role) {
 
 async function rbacToggleUser(username, active) {
     try {
-        await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'toggle', username, active}) });
-        showNotification(`User ${escHtml(username)} ${active?'activated':'deactivated'}`, 'success');
+        await fetch('/api/rbac/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'toggle', username, active }) });
+        showNotification(`User ${escHtml(username)} ${active ? 'activated' : 'deactivated'}`, 'success');
         rbacLoadUsers();
-    } catch(e) { showNotification('User toggle failed', 'error'); }
+    } catch (e) { showNotification('User toggle failed', 'error'); }
 }
 
 function rbacToggleByIdx(i, active) {
@@ -2779,11 +2780,11 @@ async function rbacAddUser() {
     const role = document.getElementById('rbac-new-role').value;
     if (!username || !password) { showNotification('Username and password required', 'warning'); return; }
     try {
-        const r = await fetch('/api/rbac/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'add', username, password, role}) });
+        const r = await fetch('/api/rbac/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', username, password, role }) });
         const d = await r.json();
         showNotification(d.success ? `User ${escHtml(username)} added` : d.error, d.success ? 'success' : 'error');
         if (d.success) { document.getElementById('rbac-new-username').value = ''; document.getElementById('rbac-new-password').value = ''; rbacLoadUsers(); }
-    } catch(e) { showNotification('Add user failed', 'error'); }
+    } catch (e) { showNotification('Add user failed', 'error'); }
 }
 
 async function rbacLoadSession() {
@@ -2812,15 +2813,15 @@ async function rbacLoadSession() {
                 </tr>`;
             });
         }
-    } catch(e) { console.error('RBAC session error', e); }
+    } catch (e) { console.error('RBAC session error', e); }
 }
 
 async function rbacRevokeSession(id) {
     try {
-        await fetch('/api/rbac/session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'revoke', id}) });
+        await fetch('/api/rbac/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'revoke', id }) });
         showNotification('Session revoked', 'success');
         rbacLoadSession();
-    } catch(e) { showNotification('Revoke failed', 'error'); }
+    } catch (e) { showNotification('Revoke failed', 'error'); }
 }
 
 function rbacRevokeSessionByIdx(i) {
@@ -2841,14 +2842,14 @@ function massSelectType(type) {
     const btn = document.querySelector(`.mass-type-btn[data-type="${type}"]`);
     if (btn) btn.classList.add('active');
     document.querySelectorAll('.mass-panel').forEach(p => p.style.display = 'none');
-    const panel = document.getElementById('mass-panel-' + type.replace('_','-'));
+    const panel = document.getElementById('mass-panel-' + type.replace('_', '-'));
     if (panel) panel.style.display = 'block';
 }
 
 function massAddBatchRow() {
     const container = document.getElementById('mass-batch-rows');
     const idx = _massBatchRows.length;
-    _massBatchRows.push({path:'',value:''});
+    _massBatchRows.push({ path: '', value: '' });
     const row = document.createElement('div');
     row.className = 'mass-batch-row';
     row.id = 'mass-row-' + idx;
@@ -2876,14 +2877,14 @@ async function massSubmit() {
         schedule: document.getElementById('mass-fw-schedule')?.value || 'immediate'
     };
     try {
-        const r = await fetch('/api/mass_actions/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const r = await fetch('/api/mass_actions/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const d = await r.json();
         if (d.success) {
             showNotification(`Job ${d.job_id} submitted`, 'success');
             massStartPolling(d.job_id);
             massLoadHistory();
         } else { showNotification(d.error || 'Submission failed', 'error'); }
-    } catch(e) { showNotification('Submit error', 'error'); }
+    } catch (e) { showNotification('Submit error', 'error'); }
 }
 
 function massStartPolling(jobId) {
@@ -2896,13 +2897,13 @@ function massStartPolling(jobId) {
             const r = await fetch('/api/mass_actions/status/' + jobId);
             const d = await r.json();
             if (bar) bar.style.width = (d.progress || 0) + '%';
-            if (status) status.textContent = `${d.status} — ${d.success_count||0} OK / ${d.fail_count||0} failed`;
+            if (status) status.textContent = `${d.status} — ${d.success_count || 0} OK / ${d.fail_count || 0} failed`;
             if (d.status === 'completed' || d.status === 'failed') {
                 clearInterval(_massPollingInterval);
                 showNotification('Job ' + jobId + ' ' + d.status, d.status === 'completed' ? 'success' : 'error');
                 massLoadHistory();
             }
-        } catch(e) { clearInterval(_massPollingInterval); }
+        } catch (e) { clearInterval(_massPollingInterval); }
     }, 2000);
 }
 
@@ -2914,11 +2915,11 @@ async function massLoadHistory() {
         if (tbody) {
             tbody.innerHTML = '';
             (d.history || []).forEach(j => {
-                const statusCls = ['completed','failed','running','queued'].includes(j.status) ? j.status : 'unknown';
+                const statusCls = ['completed', 'failed', 'running', 'queued'].includes(j.status) ? j.status : 'unknown';
                 tbody.innerHTML += `<tr>
                   <td><code>${escHtml(j.job_id)}</code></td>
                   <td>${escHtml(j.type)}</td>
-                  <td>${escHtml((j.cpes||[]).join(', '))}</td>
+                  <td>${escHtml((j.cpes || []).join(', '))}</td>
                   <td><span class="status-badge status-${statusCls}">${escHtml(j.status)}</span></td>
                   <td>${escHtml(j.started || '—')}</td>
                   <td>${escHtml(j.completed || '—')}</td>
@@ -2926,7 +2927,7 @@ async function massLoadHistory() {
                 </tr>`;
             });
         }
-    } catch(e) { console.error('Mass history error', e); }
+    } catch (e) { console.error('Mass history error', e); }
 }
 
 function massSelectAllCpes(checked) {
@@ -3014,7 +3015,7 @@ async function cpeLoadList() {
                 massContainer.appendChild(label);
             });
         }
-    } catch(e) { console.error('CPE list error', e); }
+    } catch (e) { console.error('CPE list error', e); }
 }
 
 function cpeConnectByIdx(i) {
@@ -3038,11 +3039,11 @@ async function cpeAdd() {
     };
     if (!payload.serial || !payload.broker) { showNotification('Serial and broker required', 'warning'); return; }
     try {
-        const r = await fetch('/api/cpes/add', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const r = await fetch('/api/cpes/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const d = await r.json();
         showNotification(d.success ? 'CPE added: ' + d.id : d.error, d.success ? 'success' : 'error');
         if (d.success) cpeLoadList();
-    } catch(e) { showNotification('CPE add error', 'error'); }
+    } catch (e) { showNotification('CPE add error', 'error'); }
 }
 
 async function cpeRemove(id) {
@@ -3052,7 +3053,7 @@ async function cpeRemove(id) {
         const d = await r.json();
         showNotification(d.success ? 'CPE removed' : d.error, d.success ? 'success' : 'error');
         if (d.success) cpeLoadList();
-    } catch(e) { showNotification('CPE remove error', 'error'); }
+    } catch (e) { showNotification('CPE remove error', 'error'); }
 }
 
 async function cpeConnect(id) {
@@ -3065,7 +3066,7 @@ async function cpeConnect(id) {
             if (banner) { banner.textContent = 'Now managing: ' + (d.name || id); banner.style.display = 'block'; }
             cpeLoadList();
         } else { showNotification(d.error || 'Connect failed', 'error'); }
-    } catch(e) { showNotification('CPE connect error', 'error'); }
+    } catch (e) { showNotification('CPE connect error', 'error'); }
 }
 
 function cpeViewDetails(id) {
@@ -3081,7 +3082,7 @@ async function cpeCompare() {
     const checked = Array.from(document.querySelectorAll('.cpe-compare-checkbox:checked')).map(c => c.value);
     if (checked.length < 2) { showNotification('Select 2 or 3 CPEs to compare', 'warning'); return; }
     try {
-        const r = await fetch('/api/cpes/compare', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ids: checked}) });
+        const r = await fetch('/api/cpes/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: checked }) });
         const d = await r.json();
         const table = document.getElementById('cpe-compare-table');
         if (table && d.success) {
@@ -3093,7 +3094,7 @@ async function cpeCompare() {
             table.innerHTML = html;
             document.getElementById('cpe-compare-panel').style.display = 'block';
         }
-    } catch(e) { showNotification('Compare error', 'error'); }
+    } catch (e) { showNotification('Compare error', 'error'); }
 }
 
 function cpeFilterByTag(tag) {
@@ -3108,7 +3109,7 @@ function cpeFilterByTag(tag) {
 }
 
 // ── Initialize new sections on DOMContentLoaded ──────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     metricsInit();
     alertsInit();
     fleetInit();
@@ -3117,8 +3118,8 @@ document.addEventListener('DOMContentLoaded', function() {
     wifiInit();
 
     // Load data when sections are first visited
-    document.querySelectorAll('.nav-item').forEach(function(item) {
-        item.addEventListener('click', function() {
+    document.querySelectorAll('.nav-item').forEach(function (item) {
+        item.addEventListener('click', function () {
             const section = item.getAttribute('data-section');
             if (section === 'section-metrics') metricsRefresh();
             else if (section === 'section-alerts') alertsRenderRules();
@@ -3138,7 +3139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // AI chat Enter key
     const aiInput = document.getElementById('ai-input');
     if (aiInput) {
-        aiInput.addEventListener('keydown', function(e) {
+        aiInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSendMessage(); }
         });
     }
